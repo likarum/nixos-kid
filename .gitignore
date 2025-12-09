@@ -1,0 +1,12 @@
+# Fichiers de build Nix
+result
+result-*
+
+# Fichiers temporaires
+*~
+*.swp
+*.swo
+.DS_Store
+
+# Fichiers de lock (peuvent être committés ou non selon préférence)
+# flake.lock
