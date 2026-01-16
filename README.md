@@ -26,6 +26,13 @@ Configuration NixOS pour laptop enfant avec **filtrage DNS local via AdGuard Hom
 ║  PAS INFAILLIBLES. Une SURVEILLANCE ACTIVE des parents reste INDISPENSABLE.  ║
 ║  Ne vous reposez PAS uniquement sur ces outils techniques.                   ║
 ║                                                                               ║
+║  🧠 RÉFLEXION PHILOSOPHIQUE                                                   ║
+║  Si votre enfant possède les compétences techniques pour lire et comprendre  ║
+║  ce code NixOS, ou pour bypasser ce système de filtrage, il a probablement   ║
+║  atteint un niveau de maturité technique qui remet en question la pertinence ║
+║  même d'un contrôle parental technique. À ce stade, le dialogue et la        ║
+║  confiance deviennent plus efficaces que les restrictions techniques.        ║
+║                                                                               ║
 ║  ⚡ UTILISATION À VOS RISQUES ET PÉRILS                                       ║
 ║  VOUS êtes RESPONSABLE de la configuration et de l'utilisation de ce         ║
 ║  système pour vos enfants. TESTEZ TOUJOURS dans un environnement de test     ║
