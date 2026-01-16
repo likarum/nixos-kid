@@ -1,6 +1,6 @@
-# NixOS Kid-Friendly Configuration
+# NixOS Kid-Friendly - Filtrage DNS robuste
 
-Configuration NixOS pour un environnement enfant avec applications éducatives et jeux en français.
+Configuration NixOS pour laptop enfant avec **filtrage DNS local via AdGuard Home**, impossible à contourner.
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -38,133 +38,406 @@ Configuration NixOS pour un environnement enfant avec applications éducatives e
 
 ---
 
-## Caractéristiques
+## 🎯 Objectifs
 
-- 🇫🇷 **Interface 100% en français** - Système et applications configurés en français
-- 🎓 **Applications éducatives** - GCompris, Tux Paint, Childsplay, et plus
-- 🎮 **Jeux adaptés** - SuperTux, Frozen Bubble, et autres jeux kid-friendly
-- 🔒 **Contrôles parentaux** - Restrictions et sécurité intégrées
-- 🖥️ **Interface simple** - Environnement de bureau adapté aux enfants
+- ✅ **Filtrage DNS local** : AdGuard Home sur `127.0.0.1:53`
+- ✅ **Blocage DoH/DoT** : Impossible de bypass via DNS-over-HTTPS ou DNS-over-TLS
+- ✅ **Policies navigateurs** : Firefox et Chromium verrouillés anti-DoH
+- ✅ **Firewall strict** : Blocage IPs DoH publics (Cloudflare, Google, Quad9)
+- ✅ **Utilisateur sans sudo** : Enfant ne peut pas modifier la config système
+- ✅ **Secrets séparés** : Mots de passe dans fichier externe non-commité
 
-## Structure du projet
+## 🏗️ Architecture
 
 ```
-.
-├── flake.nix              # Point d'entrée du flake
-├── modules/
-│   ├── kid-friendly.nix   # Module principal
-│   ├── education.nix      # Applications éducatives
-│   ├── games.nix          # Jeux
-│   └── parental.nix       # Contrôles parentaux
-└── README.md
+Applications (Firefox, Chromium, etc.)
+         │ DoH bloqué par policies + firewall
+         ▼
+AdGuard Home (127.0.0.1:53)
+  - SafeSearch forcé
+  - Listes de blocage
+  - Filtrage parental
+         │ Upstream DNS queries (DoH)
+         ▼
+Providers DNS autorisés UNIQUEMENT
+  - AdGuard DNS (94.140.14.14)
+  - DNS0.eu (193.110.81.0)
+  - Mullvad DNS (194.242.2.2)
 ```
 
-## Installation
+## 📦 Modules
 
-> **📚 Vous partez de zéro ?**
->
-> Consultez le **[Guide d'Installation Complet](INSTALLATION.md)** qui couvre :
-> - ✅ Installation de NixOS depuis une clé USB
-> - ✅ Partitionnement et configuration matérielle
-> - ✅ Installation pas-à-pas de Kid-Friendly
-> - ✅ Configuration pour machines anciennes, portables, multi-utilisateurs
-> - ✅ Vérifications et tests post-installation
+| Module | Description |
+|--------|-------------|
+| [adguard-home.nix](modules/adguard-home.nix) | AdGuard Home avec config immuable |
+| [dns-enforcement.nix](modules/dns-enforcement.nix) | Force DNS local uniquement |
+| [browser-policies.nix](modules/browser-policies.nix) | Policies Firefox/Chromium anti-DoH |
+| [firewall.nix](modules/firewall.nix) | Blocage firewall DoH providers |
+| [user.nix](modules/user.nix) | Utilisateur enfant sans sudo |
 
-### Intégration dans une configuration NixOS existante
+## 🚀 Installation (avec flakes)
 
-1. Ajoutez ce flake à votre `flake.nix` :
+### 1. Cloner ce dépôt dans /etc/nixos
+
+```bash
+cd /etc/nixos
+git clone https://github.com/VOTRE-USERNAME/nixos-kid.git
+```
+
+### 2. Créer le fichier secrets.nix
+
+```bash
+cd /etc/nixos/nixos-kid
+cp secrets.nix.example secrets.nix
+```
+
+### 3. Générer le hash bcrypt pour AdGuard Home
+
+```bash
+# Entrer dans un shell avec htpasswd
+nix-shell -p apacheHttpd
+
+# Générer le hash (remplacer "VotreMotDePasse" par votre mot de passe admin)
+htpasswd -B -n -b admin VotreMotDePasse
+```
+
+**Exemple de sortie :**
+```
+admin:$2y$10$abc123xyz789EXEMPLE_HASH
+```
+
+Copiez la partie après `admin:` (le hash commençant par `$2y$10$`)
+
+### 4. Éditer secrets.nix
+
+Ouvrez `/etc/nixos/nixos-kid/secrets.nix` et remplacez les valeurs :
 
 ```nix
 {
+  # Hash bcrypt du mot de passe admin AdGuard Home
+  adguardAdminPasswordHash = "$2y$10$VOTRE_HASH_ICI";
+
+  # Subnet de votre réseau local (adapter selon votre réseau)
+  lanSubnet = "192.168.1.0/24";
+
+  # Mot de passe initial pour l'utilisateur enfant
+  childInitialPassword = "changeme";
+
+  # Nom d'utilisateur de l'enfant
+  childUsername = "enfant";
+
+  # Nom complet de l'enfant
+  childFullName = "Mon Enfant";
+}
+```
+
+**IMPORTANT** : Le fichier `secrets.nix` est dans `.gitignore` et ne sera **JAMAIS** commité. Gardez-le en sécurité !
+
+### 5. Créer votre flake.nix
+
+Créez `/etc/nixos/flake.nix` (voir [example-flake.nix](example-flake.nix)) :
+
+```nix
+{
+  description = "Configuration NixOS laptop enfant";
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixos-kid.url = "path:/home/likarum/git/aquali/nixos-kid";
+
+    # Chemin local vers le flake nixos-kid
+    nixos-kid.url = "path:/etc/nixos/nixos-kid";
   };
 
   outputs = { self, nixpkgs, nixos-kid }: {
-    nixosConfigurations.votre-machine = nixpkgs.lib.nixosSystem {
+    nixosConfigurations.laptop-enfant = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
+        ./hardware-configuration.nix
+        nixos-kid.nixosModules.default
         ./configuration.nix
-        nixos-kid.nixosModules.kid-friendly
       ];
     };
   };
 }
 ```
 
-2. Dans votre `configuration.nix`, activez le module :
+### 6. Créer votre configuration.nix
+
+Créez `/etc/nixos/configuration.nix` (voir [flake-configuration.nix](flake-configuration.nix)) :
 
 ```nix
+{ config, pkgs, ... }:
+
+let
+  # Importer le fichier secrets
+  secrets = import ./nixos-kid/secrets.nix;
+in
 {
-  kid-friendly = {
-    enable = true;
-    username = "enfant";  # Nom d'utilisateur de l'enfant
+  imports = [
+    ./hardware-configuration.nix
+  ];
+
+  kidFriendly = {
+    adguardHome = {
+      enable = true;
+      adminPasswordHash = secrets.adguardAdminPasswordHash;
+      lanSubnet = secrets.lanSubnet;
+    };
+
+    dnsEnforcement.enable = true;
+
+    browserPolicies = {
+      enable = true;
+      firefox.enable = true;
+      chromium.enable = true;
+    };
+
+    firewall = {
+      enable = true;
+      lanSubnet = secrets.lanSubnet;
+      blockDoHProviders = true;
+    };
+
+    user = {
+      enable = true;
+      username = secrets.childUsername;
+      fullName = secrets.childFullName;
+      initialPassword = secrets.childInitialPassword;
+      extraGroups = [ "networkmanager" "video" "audio" ];
+
+      packages = with pkgs; [
+        firefox
+        chromium
+        gcompris
+        tuxmath
+        tuxpaint
+        libreoffice
+        kate
+        vlc
+      ];
+    };
   };
+
+  # Configuration système (hostname, locale, desktop, etc.)
+  networking.hostName = "laptop-enfant";
+  time.timeZone = "Europe/Paris";
+  i18n.defaultLocale = "fr_FR.UTF-8";
+
+  # Desktop environment
+  services.xserver = {
+    enable = true;
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
+    xkb.layout = "fr";
+  };
+
+  # Compte admin parent
+  users.users.admin = {
+    isNormalUser = true;
+    description = "Parent Admin";
+    extraGroups = [ "wheel" "networkmanager" ];
+  };
+
+  system.stateVersion = "24.05";
 }
 ```
 
-3. Reconstruisez votre système :
+### 7. Appliquer la configuration
 
 ```bash
-sudo nixos-rebuild switch --flake .#votre-machine
+# Première fois : générer flake.lock
+sudo nix flake update /etc/nixos
+
+# Appliquer la configuration
+sudo nixos-rebuild switch --flake /etc/nixos#laptop-enfant
 ```
 
-## Configuration
+## 📁 Structure des fichiers
 
-Le module propose plusieurs options :
+Votre `/etc/nixos` devrait ressembler à :
+
+```
+/etc/nixos/
+├── flake.nix                    # Votre flake principal
+├── flake.lock                   # Généré automatiquement
+├── hardware-configuration.nix   # Généré par nixos-generate-config
+├── configuration.nix            # Votre config (importe secrets.nix)
+└── nixos-kid/                   # Ce dépôt git
+    ├── flake.nix
+    ├── secrets.nix              # VOS SECRETS (non-commité)
+    ├── secrets.nix.example      # Modèle
+    ├── modules/
+    │   ├── adguard-home.nix
+    │   ├── dns-enforcement.nix
+    │   ├── browser-policies.nix
+    │   ├── firewall.nix
+    │   └── user.nix
+    └── README.md
+```
+
+## 🧪 Tests de sécurité
+
+### Test 1 : DNS local forcé
+
+```bash
+cat /etc/resolv.conf
+# Doit afficher : nameserver 127.0.0.1
+```
+
+### Test 2 : Blocage DoH
+
+```bash
+# Cloudflare DoH (doit échouer)
+curl -I https://1.1.1.1
+# Connection refused
+
+# Google DoH (doit échouer)
+curl -I https://8.8.8.8
+# Connection refused
+```
+
+### Test 3 : Blocage DNS externe
+
+```bash
+# DNS Google sur port 53 (doit échouer)
+dig @8.8.8.8 google.com
+# Connection refused
+```
+
+### Test 4 : Blocage DoT
+
+```bash
+# DNS-over-TLS port 853 (doit échouer)
+kdig +tls @1.1.1.1 google.com
+# Connection refused
+```
+
+### Test 5 : Policies navigateurs
+
+**Firefox :**
+1. Ouvrir `about:config`
+2. Chercher `network.trr.mode`
+3. Doit être à `5` et **verrouillé**
+
+**Chromium :**
+1. Ouvrir `chrome://policy`
+2. Vérifier `DnsOverHttpsMode` = `"off"`
+
+### Test 6 : Interface admin AdGuard Home
+
+```bash
+# Depuis un autre appareil sur le LAN
+http://IP_DU_LAPTOP:3000
+
+# Login : admin
+# Mot de passe : celui utilisé pour générer le hash
+```
+
+## 🔧 Personnalisation
+
+### Changer les upstreams DNS
+
+Éditez [modules/adguard-home.nix](modules/adguard-home.nix) :
 
 ```nix
-{
-  kid-friendly = {
-    enable = true;
-    username = "enfant";
-
-    # Applications éducatives
-    education = {
-      enable = true;
-      gcompris = true;      # Suite éducative complète
-      tuxpaint = true;      # Dessin pour enfants
-      childsplay = true;    # Jeux éducatifs
-    };
-
-    # Jeux
-    games = {
-      enable = true;
-      supertux = true;      # Plateforme type Mario
-      frozenBubble = true;  # Puzzle bulles
-      tuxRacer = true;      # Course de pingouin
-      steam = true;         # Steam (optionnel) - milliers de jeux
-    };
-
-    # Contrôles parentaux
-    parental = {
-      enable = true;
-      blockAdultContent = true;
-      timeRestrictions = true;
-    };
-  };
-}
+upstream_dns = [
+  "https://dns.adguard-dns.com/dns-query"
+  "https://dns0.eu/"
+  "https://dns.mullvad.net/dns-query"
+  # Ajoutez vos upstreams ici
+];
 ```
 
-## Applications incluses
+**Important :** Ajoutez aussi les IPs correspondantes dans `allowedDNSIPs` de [modules/firewall.nix](modules/firewall.nix).
 
-### Éducatives
-- **GCompris** - Plus de 100 activités éducatives
-- **Tux Paint** - Dessin et créativité
-- **Childsplay** - Jeux éducatifs variés
-- **Tux Typing** - Apprentissage du clavier
-- **Kturtle** - Programmation pour enfants
+### Ajouter des applications
 
-### Jeux
-- **SuperTux** - Jeu de plateforme
-- **Frozen Bubble** - Puzzle
-- **SuperTuxKart** - Course de kart
-- **Minetest** - Type Minecraft
-- **Steam** (optionnel) - Plateforme avec milliers de jeux
-- **PySolFC** - Jeux de cartes
-- Et 10+ autres jeux
+Dans votre `configuration.nix` :
 
-## Licence
+```nix
+kidFriendly.user.packages = with pkgs; [
+  firefox
+  chromium
+  gcompris      # Éducatif
+  tuxmath       # Maths
+  tuxpaint      # Dessin
+  libreoffice
+  vlc
+  # Ajoutez vos apps ici
+];
+```
 
-MIT
+### Bloquer/Autoriser des domaines
+
+Dans [modules/adguard-home.nix](modules/adguard-home.nix), section `user_rules` :
+
+```nix
+user_rules = [
+  # Bloquer
+  "||example.com^"
+
+  # Autoriser (whitelist)
+  "@@||trusted-site.com^"
+];
+```
+
+## 🔄 Mise à jour
+
+Pour mettre à jour le flake nixos-kid :
+
+```bash
+cd /etc/nixos/nixos-kid
+git pull
+
+# Puis reconstruire
+sudo nixos-rebuild switch --flake /etc/nixos#laptop-enfant
+```
+
+## 🛠️ Dépannage
+
+### AdGuard Home ne démarre pas
+
+```bash
+sudo journalctl -u adguardhome -f
+sudo lsof -i :53
+```
+
+### Interface admin inaccessible
+
+```bash
+sudo ss -tulpn | grep 3000
+sudo iptables -L INPUT -n | grep 3000
+```
+
+### DNS ne fonctionne pas
+
+```bash
+cat /etc/resolv.conf
+dig @127.0.0.1 google.com
+curl http://127.0.0.1:3000
+```
+
+### Erreur "secrets.nix not found"
+
+Assurez-vous d'avoir créé `/etc/nixos/nixos-kid/secrets.nix` à partir de `secrets.nix.example`.
+
+## 📚 Ressources
+
+- [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome)
+- [NixOS Manual](https://nixos.org/manual/nixos/stable/)
+- [NixOS Flakes](https://nixos.wiki/wiki/Flakes)
+- [NixOS Firewall](https://nixos.wiki/wiki/Firewall)
+
+## ⚠️ Avertissement
+
+**Aucun système n'est infaillible à 100%**. Cette configuration offre un bon niveau de protection, mais :
+
+- Surveillez régulièrement l'activité réseau
+- Discutez avec l'enfant de sécurité en ligne
+- Adaptez selon l'âge et la maturité
+- Gardez le système à jour
+- **Sécurisez votre fichier `secrets.nix`** (permissions 600 recommandées)
+
+## 📄 Licence
+
+MIT - Voir [LICENSE](LICENSE)
