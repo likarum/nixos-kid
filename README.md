@@ -80,7 +80,6 @@ Providers DNS autorisés UNIQUEMENT
 | [dns-enforcement.nix](modules/dns-enforcement.nix) | Force DNS local uniquement |
 | [browser-policies.nix](modules/browser-policies.nix) | Policies Firefox/Chromium anti-DoH |
 | [firewall.nix](modules/firewall.nix) | Blocage firewall DoH providers |
-| [user.nix](modules/user.nix) | Utilisateur enfant sans sudo |
 
 ## 🚀 Installation (avec flakes)
 
@@ -277,8 +276,7 @@ Votre `/etc/nixos` devrait ressembler à :
     │   ├── adguard-home.nix
     │   ├── dns-enforcement.nix
     │   ├── browser-policies.nix
-    │   ├── firewall.nix
-    │   └── user.nix
+    │   └── firewall.nix
     └── README.md
 ```
 
@@ -357,21 +355,31 @@ upstream_dns = [
 
 **Important :** Ajoutez aussi les IPs correspondantes dans `allowedDNSIPs` de [modules/firewall.nix](modules/firewall.nix).
 
-### Ajouter des applications
+### Créer l'utilisateur enfant
 
-Dans votre `configuration.nix` :
+Dans votre `configuration.nix`, créez un utilisateur standard **sans groupe wheel** :
 
 ```nix
-kidFriendly.user.packages = with pkgs; [
-  firefox
-  chromium
-  gcompris      # Éducatif
-  tuxmath       # Maths
-  tuxpaint      # Dessin
-  libreoffice
-  vlc
-  # Ajoutez vos apps ici
-];
+users.users.enfant = {
+  isNormalUser = true;
+  description = "Mon Enfant";
+  # PAS de groupe wheel = PAS de sudo
+  extraGroups = [ "networkmanager" "video" "audio" ];
+
+  # Applications pour l'utilisateur
+  packages = with pkgs; [
+    firefox
+    chromium
+    gcompris      # Éducatif
+    tuxmath       # Maths
+    tuxpaint      # Dessin
+    libreoffice
+    vlc
+  ];
+};
+
+# Définir le mot de passe après installation:
+# sudo passwd enfant
 ```
 
 ### Bloquer/Autoriser des domaines

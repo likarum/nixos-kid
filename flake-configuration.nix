@@ -42,26 +42,6 @@ in
       lanSubnet = secrets.lanSubnet;
       blockDoHProviders = true;
     };
-
-    # User
-    user = {
-      enable = true;
-      username = secrets.childUsername;
-      fullName = secrets.childFullName;
-      initialPassword = secrets.childInitialPassword;
-      extraGroups = [ "networkmanager" "video" "audio" ];
-
-      packages = with pkgs; [
-        firefox
-        chromium
-        gcompris
-        tuxmath
-        tuxpaint
-        libreoffice
-        kate
-        vlc
-      ];
-    };
   };
 
   # ===================================================================
@@ -104,10 +84,30 @@ in
 
   networking.networkmanager.enable = true;
 
+  # Compte admin parent (avec sudo)
   users.users.admin = {
     isNormalUser = true;
     description = "Parent Admin";
     extraGroups = [ "wheel" "networkmanager" ];
+  };
+
+  # Compte enfant (SANS sudo - pas de groupe wheel)
+  users.users.${secrets.childUsername} = {
+    isNormalUser = true;
+    description = secrets.childFullName;
+    extraGroups = [ "networkmanager" "video" "audio" ];
+    initialPassword = secrets.childInitialPassword;
+
+    packages = with pkgs; [
+      firefox
+      chromium
+      gcompris
+      tuxmath
+      tuxpaint
+      libreoffice
+      kate
+      vlc
+    ];
   };
 
   security.sudo.wheelNeedsPassword = true;

@@ -19,9 +19,6 @@
       # Module firewall
       firewall = import ./modules/firewall.nix;
 
-      # Module user
-      user = import ./modules/user.nix;
-
       # Module tout-en-un
       default = { config, pkgs, ... }: {
         imports = [
@@ -29,7 +26,6 @@
           self.nixosModules.dns-enforcement
           self.nixosModules.browser-policies
           self.nixosModules.firewall
-          self.nixosModules.user
         ];
       };
     };

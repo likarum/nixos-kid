@@ -14,7 +14,6 @@
     # ./nixos-kid/modules/dns-enforcement.nix
     # ./nixos-kid/modules/browser-policies.nix
     # ./nixos-kid/modules/firewall.nix
-    # ./nixos-kid/modules/user.nix
   ];
 
   # ===================================================================
