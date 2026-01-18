@@ -11,16 +11,30 @@ in
 
     adminPasswordHash = mkOption {
       type = types.str;
-      default = "$2y$10$REPLACE_WITH_ACTUAL_HASH";
+      default = "";
       description = ''
         Hash bcrypt du mot de passe admin.
+        Si vide, utilise config.sops.secrets.adguard-admin-password.path
         Générer avec : htpasswd -B -n -b admin VotreMotDePasse
         Ou avec : echo -n "VotreMotDePasse" | mkpasswd -m bcrypt -s
       '';
     };
+
+    extraUserRules = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      description = "Extra AdGuard Home user rules to add (for blocking services, custom rules, etc.)";
+      example = [ "||facebook.com^" "@@||allowed-site.com^" ];
+    };
   };
 
   config = mkIf cfg.enable {
+    # Lire le hash depuis sops si adminPasswordHash est vide
+    assertions = [{
+      assertion = cfg.adminPasswordHash != "" || config.sops.secrets ? "adguard-admin-password";
+      message = "kidFriendly.adguardHome.adminPasswordHash must be set or sops secret adguard-admin-password must exist";
+    }];
+
     services.adguardhome = {
       enable = true;
       mutableSettings = false;
@@ -31,7 +45,9 @@ in
         users = [
           {
             name = "admin";
-            password = cfg.adminPasswordHash;
+            password = if cfg.adminPasswordHash != ""
+                      then cfg.adminPasswordHash
+                      else builtins.readFile config.sops.secrets."adguard-admin-password".path;
           }
         ];
 
@@ -107,6 +123,30 @@ in
             name = "StevenBlack Fakenews + Gambling + Porn";
             id = 4;
           }
+          {
+            enabled = true;
+            url = "https://blocklistproject.github.io/Lists/porn.txt";
+            name = "BlockList Project - Porn";
+            id = 5;
+          }
+          {
+            enabled = true;
+            url = "https://blocklistproject.github.io/Lists/gambling.txt";
+            name = "BlockList Project - Gambling";
+            id = 6;
+          }
+          {
+            enabled = true;
+            url = "https://blocklistproject.github.io/Lists/redirect.txt";
+            name = "BlockList Project - Redirect";
+            id = 7;
+          }
+          {
+            enabled = true;
+            url = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro-onlydomains.txt";
+            name = "HaGeZi Pro Blocklist";
+            id = 8;
+          }
         ];
 
         user_rules = [
@@ -149,7 +189,7 @@ in
           "||dns-nyc.aaflalo.me^"
           "||doh.appliedprivacy.net^"
           "||doh.dnslify.com^"
-        ];
+        ] ++ cfg.extraUserRules;
 
         statistics = {
           enabled = true;

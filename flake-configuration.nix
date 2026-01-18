@@ -4,10 +4,6 @@
 
 { config, pkgs, ... }:
 
-let
-  # Importer le fichier secrets (secrets.nix doit exister)
-  secrets = import ./secrets.nix;
-in
 {
   imports = [
     # Votre hardware-configuration.nix
@@ -19,10 +15,13 @@ in
   # ===================================================================
 
   kidFriendly = {
+    # SOPS secrets management
+    sops.enable = true;
+
     # AdGuard Home
     adguardHome = {
       enable = true;
-      adminPasswordHash = secrets.adguardAdminPasswordHash;
+      # Le hash sera lu depuis config.sops.secrets.adguard-admin-password.path
     };
 
     # DNS enforcement
@@ -39,6 +38,13 @@ in
     firewall = {
       enable = true;
       blockDoHProviders = true;
+    };
+
+    # Services blocklist (tout bloqué sauf Steam)
+    servicesBlocklist = {
+      enable = true;
+      # Steam est autorisé par défaut (blockSteam = false)
+      # Tous les autres services sont bloqués par défaut
     };
   };
 
@@ -90,11 +96,13 @@ in
   };
 
   # Compte enfant (SANS sudo - pas de groupe wheel)
-  users.users.${secrets.childUsername} = {
+  # Le nom d'utilisateur, description et mot de passe initial sont dans secrets.yaml (chiffrés avec sops)
+  users.users.enfant = {
     isNormalUser = true;
-    description = secrets.childFullName;
+    description = "Enfant"; # Peut être overridé avec sops
     extraGroups = [ "networkmanager" "video" "audio" ];
-    initialPassword = secrets.childInitialPassword;
+    # Le mot de passe initial sera défini via hashedPasswordFile
+    hashedPasswordFile = config.sops.secrets."child-initial-password".path;
 
     packages = with pkgs; [
       firefox

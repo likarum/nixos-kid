@@ -1,0 +1,14 @@
+# Configuration SOPS pour nixos-kid
+#
+# IMPORTANT: Remplacer YOUR_AGE_PUBLIC_KEY par votre clé publique age
+# Générer avec: age-keygen -o /var/lib/sops-nix/key.txt
+#                age-keygen -y /var/lib/sops-nix/key.txt
+
+keys:
+  - &admin YOUR_AGE_PUBLIC_KEY
+
+creation_rules:
+  - path_regex: secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin

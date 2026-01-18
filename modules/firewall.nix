@@ -43,6 +43,12 @@ let
     "193.19.108.2"
     "2a07:e340::2"
   ];
+
+  # Bootstrap DNS (utilisés par AdGuard pour résoudre les DoH upstreams)
+  bootstrapDNSIPs = [
+    "94.140.14.14"    # AdGuard DNS
+    "193.110.81.0"    # DNS0.eu
+  ];
 in
 {
   options.kidFriendly.firewall = {
@@ -60,6 +66,14 @@ in
       enable = true;
 
       extraCommands = ''
+        # Exception: autoriser bootstrap DNS (UDP port 53) pour AdGuard Home
+        ${concatMapStringsSep "\n" (ip:
+          if hasInfix ":" ip then
+            "ip6tables -I OUTPUT -d ${ip} -p udp --dport 53 -j ACCEPT"
+          else
+            "iptables -I OUTPUT -d ${ip} -p udp --dport 53 -j ACCEPT"
+        ) bootstrapDNSIPs}
+
         # Blocage des serveurs DoH publics (port 443)
         ${optionalString cfg.blockDoHProviders (concatMapStringsSep "\n" (ip:
           if hasInfix ":" ip then
@@ -68,7 +82,7 @@ in
             "iptables -A OUTPUT -d ${ip} -p tcp --dport 443 -j REJECT --reject-with icmp-port-unreachable"
         ) blockedDoHIPs)}
 
-        # Exception: autoriser nos upstreams DNS
+        # Exception: autoriser nos upstreams DNS (HTTPS)
         ${concatMapStringsSep "\n" (ip:
           if hasInfix ":" ip then
             "ip6tables -I OUTPUT -d ${ip} -p tcp --dport 443 -j ACCEPT"
@@ -76,7 +90,7 @@ in
             "iptables -I OUTPUT -d ${ip} -p tcp --dport 443 -j ACCEPT"
         ) allowedDNSIPs}
 
-        # Blocage DNS non-local (port 53)
+        # Blocage DNS non-local (port 53) sauf bootstrap
         iptables -A OUTPUT -p udp --dport 53 ! -d 127.0.0.1 -j REJECT --reject-with icmp-port-unreachable
         iptables -A OUTPUT -p tcp --dport 53 ! -d 127.0.0.1 -j REJECT --reject-with icmp-port-unreachable
         ip6tables -A OUTPUT -p udp --dport 53 ! -d ::1 -j REJECT --reject-with icmp6-port-unreachable
