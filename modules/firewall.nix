@@ -48,12 +48,6 @@ in
   options.kidFriendly.firewall = {
     enable = mkEnableOption "Configure le firewall pour bloquer les contournements DNS";
 
-    lanSubnet = mkOption {
-      type = types.str;
-      default = "192.168.0.0/16";
-      description = "Subnet LAN autorisé à accéder à l'interface admin AdGuard Home";
-    };
-
     blockDoHProviders = mkOption {
       type = types.bool;
       default = true;
@@ -65,13 +59,7 @@ in
     networking.firewall = {
       enable = true;
 
-      allowedTCPPorts = [ 3000 ];
-
       extraCommands = ''
-        # Restriction interface admin AdGuard Home au LAN
-        iptables -A nixos-fw -p tcp --dport 3000 ! -s ${cfg.lanSubnet} -j nixos-fw-log-refuse
-        ip6tables -A nixos-fw -p tcp --dport 3000 ! -s ${cfg.lanSubnet} -j nixos-fw-log-refuse
-
         # Blocage des serveurs DoH publics (port 443)
         ${optionalString cfg.blockDoHProviders (concatMapStringsSep "\n" (ip:
           if hasInfix ":" ip then

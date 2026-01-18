@@ -23,7 +23,6 @@ in
     adguardHome = {
       enable = true;
       adminPasswordHash = secrets.adguardAdminPasswordHash;
-      lanSubnet = secrets.lanSubnet;
     };
 
     # DNS enforcement
@@ -39,7 +38,6 @@ in
     # Firewall
     firewall = {
       enable = true;
-      lanSubnet = secrets.lanSubnet;
       blockDoHProviders = true;
     };
   };

@@ -123,9 +123,6 @@ Ouvrez `/etc/nixos/nixos-kid/secrets.nix` et remplacez les valeurs :
   # Hash bcrypt du mot de passe admin AdGuard Home
   adguardAdminPasswordHash = "$2y$10$VOTRE_HASH_ICI";
 
-  # Subnet de votre réseau local (adapter selon votre réseau)
-  lanSubnet = "192.168.1.0/24";
-
   # Mot de passe initial pour l'utilisateur enfant
   childInitialPassword = "changeme";
 
@@ -187,7 +184,6 @@ in
     adguardHome = {
       enable = true;
       adminPasswordHash = secrets.adguardAdminPasswordHash;
-      lanSubnet = secrets.lanSubnet;
     };
 
     dnsEnforcement.enable = true;
@@ -200,28 +196,27 @@ in
 
     firewall = {
       enable = true;
-      lanSubnet = secrets.lanSubnet;
       blockDoHProviders = true;
     };
+  };
 
-    user = {
-      enable = true;
-      username = secrets.childUsername;
-      fullName = secrets.childFullName;
-      initialPassword = secrets.childInitialPassword;
-      extraGroups = [ "networkmanager" "video" "audio" ];
+  # Compte enfant (SANS sudo - pas de groupe wheel)
+  users.users.${secrets.childUsername} = {
+    isNormalUser = true;
+    description = secrets.childFullName;
+    extraGroups = [ "networkmanager" "video" "audio" ];
+    initialPassword = secrets.childInitialPassword;
 
-      packages = with pkgs; [
-        firefox
-        chromium
-        gcompris
-        tuxmath
-        tuxpaint
-        libreoffice
-        kate
-        vlc
-      ];
-    };
+    packages = with pkgs; [
+      firefox
+      chromium
+      gcompris
+      tuxmath
+      tuxpaint
+      libreoffice
+      kate
+      vlc
+    ];
   };
 
   # Configuration système (hostname, locale, desktop, etc.)

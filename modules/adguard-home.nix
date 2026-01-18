@@ -18,19 +18,13 @@ in
         Ou avec : echo -n "VotreMotDePasse" | mkpasswd -m bcrypt -s
       '';
     };
-
-    lanSubnet = mkOption {
-      type = types.str;
-      default = "192.168.0.0/16";
-      description = "Subnet LAN autorisé à accéder à l'interface admin (port 3000)";
-    };
   };
 
   config = mkIf cfg.enable {
     services.adguardhome = {
       enable = true;
       mutableSettings = false;
-      host = "127.0.0.1";
+      host = "0.0.0.0";
       port = 3000;
 
       settings = {

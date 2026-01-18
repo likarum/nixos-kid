@@ -28,9 +28,6 @@
       # IMPORTANT: Remplacez par votre hash bcrypt
       # Générer avec: htpasswd -B -n -b admin VotreMotDePasse
       adminPasswordHash = "$2y$10$REPLACE_WITH_ACTUAL_HASH";
-
-      # Subnet LAN pour accès interface admin (adapter selon votre réseau)
-      lanSubnet = "192.168.1.0/24";  # ou "192.168.0.0/16" selon votre config
     };
 
     # Force le DNS local uniquement
@@ -46,36 +43,7 @@
     # Firewall avec blocage DoH providers
     firewall = {
       enable = true;
-      lanSubnet = "192.168.1.0/24";  # Même valeur que adguardHome.lanSubnet
       blockDoHProviders = true;
-    };
-
-    # Utilisateur enfant sans sudo
-    user = {
-      enable = true;
-      username = "enfant";
-      fullName = "Mon Enfant";
-      initialPassword = "changeme";  # À changer au premier login
-      extraGroups = [ "networkmanager" "video" "audio" ];
-
-      # Applications pour l'enfant
-      packages = with pkgs; [
-        # Navigateurs (policies déjà appliquées)
-        firefox
-        chromium
-
-        # Éducation
-        gcompris
-        tuxmath
-        tuxpaint
-
-        # Bureautique
-        libreoffice
-        kate
-
-        # Multimédia
-        vlc
-      ];
     };
   };
 
@@ -133,6 +101,32 @@
     description = "Parent Admin";
     extraGroups = [ "wheel" "networkmanager" ];
     # Définir le mot de passe avec: sudo passwd admin
+  };
+
+  # Compte enfant (SANS sudo - pas de groupe wheel)
+  users.users.enfant = {
+    isNormalUser = true;
+    description = "Mon Enfant";
+    extraGroups = [ "networkmanager" "video" "audio" ];
+    initialPassword = "changeme";  # À changer au premier login
+
+    packages = with pkgs; [
+      # Navigateurs (policies déjà appliquées)
+      firefox
+      chromium
+
+      # Éducation
+      gcompris
+      tuxmath
+      tuxpaint
+
+      # Bureautique
+      libreoffice
+      kate
+
+      # Multimédia
+      vlc
+    ];
   };
 
   # Sudo pour wheel uniquement
