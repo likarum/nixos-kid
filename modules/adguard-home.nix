@@ -30,15 +30,10 @@ in
     services.adguardhome = {
       enable = true;
       mutableSettings = false;
+      host = "127.0.0.1";
+      port = 3000;
 
       settings = {
-        bind_host = "127.0.0.1";
-        bind_port = 53;
-
-        http = {
-          address = "0.0.0.0:3000";
-        };
-
         users = [
           {
             name = "admin";
