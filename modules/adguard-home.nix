@@ -153,12 +153,12 @@ in
 
         statistics = {
           enabled = true;
-          interval = 24h;
+          interval = "24h";
         };
 
         querylog = {
           enabled = true;
-          interval = 72h;
+          interval = "72h";
           size_memory = 1000;
         };
       };
