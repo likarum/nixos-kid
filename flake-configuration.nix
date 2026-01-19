@@ -126,8 +126,8 @@
     git
     dig
     apacheHttpd
-    sops     # Pour éditer secrets.yaml
-    age      # Pour la gestion des clés
+    sops        # Pour éditer secrets.yaml
+    ssh-to-age  # Pour convertir clé SSH en age
   ];
 
   system.stateVersion = "25.11";

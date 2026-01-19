@@ -19,7 +19,9 @@ in
   config = mkIf cfg.enable {
     sops = {
       defaultSopsFile = cfg.secretsFile;
-      age.keyFile = "/var/lib/sops-nix/key.txt";
+
+      # Utilise la clé SSH de l'hôte au lieu d'une clé age dédiée
+      age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
       secrets = {
         # AdGuard Home admin password hash

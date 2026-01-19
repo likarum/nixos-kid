@@ -1,14 +1,22 @@
 # Configuration SOPS pour nixos-kid
 #
-# IMPORTANT: Remplacer YOUR_AGE_PUBLIC_KEY par votre clé publique age
-# Générer avec: age-keygen -o /var/lib/sops-nix/key.txt
-#                age-keygen -y /var/lib/sops-nix/key.txt
+# Utilise la clé SSH de l'hôte (plus simple que age)
+#
+# IMPORTANT: Remplacer YOUR_SSH_HOST_KEY par votre clé publique SSH convertie en age
+#
+# Pour obtenir la clé:
+#   1. Convertir la clé SSH en format age:
+#      nix-shell -p ssh-to-age --run 'ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub'
+#      OU
+#      ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
+#
+#   2. Copier la sortie (age1xxxx...) et remplacer ci-dessous
 
 keys:
-  - &admin YOUR_AGE_PUBLIC_KEY
+  - &host YOUR_SSH_HOST_KEY
 
 creation_rules:
   - path_regex: secrets\.yaml$
     key_groups:
       - age:
-          - *admin
+          - *host

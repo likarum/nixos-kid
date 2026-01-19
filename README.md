@@ -97,37 +97,36 @@ cd /etc/nixos
 git clone https://github.com/likarum/nixos-kid.git
 ```
 
-### 2. Générer la clé age pour sops
+### 2. Convertir la clé SSH de l'hôte pour sops
+
+Cette configuration utilise la clé SSH de l'hôte (plus simple que générer une clé age dédiée).
 
 ```bash
-# Créer le répertoire
-sudo mkdir -p /var/lib/sops-nix
+# Installer ssh-to-age si nécessaire
+nix-shell -p ssh-to-age
 
-# Générer la clé age
-sudo age-keygen -o /var/lib/sops-nix/key.txt
-
-# Afficher la clé publique (pour .sops.yaml)
-sudo age-keygen -y /var/lib/sops-nix/key.txt
+# Convertir la clé SSH publique en format age
+ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
 ```
 
 **Exemple de sortie :**
 ```
-Public key: age1abc123xyz789EXEMPLE
+age1abc123xyz789EXEMPLE
 ```
 
 ### 3. Configurer .sops.yaml
 
-Éditez `/etc/nixos/nixos-kid/.sops.yaml` et remplacez `YOUR_AGE_PUBLIC_KEY` par votre clé publique :
+Éditez `/etc/nixos/nixos-kid/.sops.yaml` et remplacez `YOUR_SSH_HOST_KEY` par la clé age obtenue ci-dessus :
 
 ```yaml
 keys:
-  - &admin age1abc123xyz789EXEMPLE  # Votre clé publique ici
+  - &host age1abc123xyz789EXEMPLE  # Votre clé age (convertie depuis SSH)
 
 creation_rules:
   - path_regex: secrets\.yaml$
     key_groups:
       - age:
-          - *admin
+          - *host
 ```
 
 ### 4. Générer le hash bcrypt pour AdGuard Home
@@ -317,8 +316,8 @@ Créez `/etc/nixos/configuration.nix` :
     htop
     git
     dig
-    sops     # Pour éditer secrets.yaml
-    age      # Pour la gestion des clés
+    sops        # Pour éditer secrets.yaml
+    ssh-to-age  # Pour convertir clé SSH en age
   ];
 
   system.stateVersion = "25.11";
@@ -347,7 +346,7 @@ Votre `/etc/nixos` devrait ressembler à :
 ├── configuration.nix            # Votre config
 └── nixos-kid/                   # Ce dépôt git
     ├── flake.nix
-    ├── .sops.yaml               # Config sops (avec votre clé publique)
+    ├── .sops.yaml               # Config sops (avec clé SSH convertie)
     ├── secrets.yaml             # SECRETS CHIFFRÉS (commitable)
     ├── secrets.yaml.example     # Modèle
     ├── modules/
@@ -359,8 +358,9 @@ Votre `/etc/nixos` devrait ressembler à :
     │   └── services-blocklist.nix
     └── README.md
 
-/var/lib/sops-nix/
-└── key.txt                      # Clé privée age (NE JAMAIS COMMITTER)
+/etc/ssh/
+├── ssh_host_ed25519_key         # Clé privée SSH de l'hôte (utilisée par sops)
+└── ssh_host_ed25519_key.pub     # Clé publique (convertie en age pour .sops.yaml)
 ```
 
 ## 🧪 Tests de sécurité
@@ -577,10 +577,13 @@ sudo iptables -L OUTPUT -n | grep 53
 ### Erreur sops "no key found"
 
 ```bash
-# Vérifier que la clé age existe
-sudo cat /var/lib/sops-nix/key.txt
+# Vérifier que la clé SSH de l'hôte existe
+sudo ls -l /etc/ssh/ssh_host_ed25519_key
 
-# Vérifier .sops.yaml
+# Convertir la clé publique SSH en age
+ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
+
+# Vérifier que .sops.yaml contient la bonne clé
 cat /etc/nixos/nixos-kid/.sops.yaml
 
 # Régénérer secrets.yaml si nécessaire
@@ -615,22 +618,30 @@ Le module AdGuard Home utilise les listes suivantes (mises à jour automatiqueme
 
 ## 🔐 Sécurité des secrets
 
-### Sauvegarde de la clé age
+### Sauvegarde de la clé SSH de l'hôte
 
-**CRITIQUE :** Sauvegardez `/var/lib/sops-nix/key.txt` dans un endroit sûr (coffre-fort de mots de passe, clé USB chiffrée, etc.). Sans cette clé, vous ne pourrez plus déchiffrer vos secrets !
+**CRITIQUE :** Cette configuration utilise `/etc/ssh/ssh_host_ed25519_key` pour déchiffrer les secrets. Sauvegardez cette clé dans un endroit sûr (coffre-fort de mots de passe, clé USB chiffrée, etc.) !
 
 ```bash
-# Sauvegarder la clé (à faire IMMÉDIATEMENT après génération)
-sudo cp /var/lib/sops-nix/key.txt ~/backup-age-key.txt
-chmod 600 ~/backup-age-key.txt
-# Copier ce fichier dans un endroit sûr puis le supprimer
+# Sauvegarder la clé SSH de l'hôte
+sudo cp /etc/ssh/ssh_host_ed25519_key ~/backup-ssh-host-key
+sudo cp /etc/ssh/ssh_host_ed25519_key.pub ~/backup-ssh-host-key.pub
+chmod 600 ~/backup-ssh-host-key
+# Copier ces fichiers dans un endroit sûr puis les supprimer
 ```
+
+**Avantages de cette approche :**
+- Pas besoin de gérer une clé age séparée
+- La clé SSH de l'hôte est déjà sauvegardée dans vos backups système
+- Plus simple : une seule clé à gérer
+
+**Important :** Si vous réinstallez le système, vous devrez restaurer cette clé SSH pour pouvoir déchiffrer les secrets !
 
 ### Permissions
 
 ```bash
-# Vérifier les permissions de la clé
-sudo ls -l /var/lib/sops-nix/key.txt
+# Vérifier les permissions de la clé SSH
+sudo ls -l /etc/ssh/ssh_host_ed25519_key
 # Doit être: -rw------- 1 root root
 
 # Permissions du fichier secrets.yaml
@@ -654,8 +665,8 @@ ls -l /etc/nixos/nixos-kid/secrets.yaml
 - Discutez avec l'enfant de sécurité en ligne
 - Adaptez selon l'âge et la maturité
 - Gardez le système à jour
-- **Sauvegardez votre clé age** dans un endroit sûr
-- **Ne commitez JAMAIS** `/var/lib/sops-nix/key.txt`
+- **Sauvegardez la clé SSH de l'hôte** `/etc/ssh/ssh_host_ed25519_key` dans un endroit sûr
+- Le fichier `secrets.yaml` est chiffré et peut être commité en toute sécurité
 
 ## 📄 Licence
 
