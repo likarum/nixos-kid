@@ -20,6 +20,15 @@ in
       '';
     };
 
+    enableHTTPS = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Activer HTTPS pour l'interface web AdGuard Home.
+        Un certificat auto-signé sera généré automatiquement.
+      '';
+    };
+
     extraUserRules = mkOption {
       type = types.listOf types.str;
       default = [];
@@ -35,6 +44,36 @@ in
       message = "kidFriendly.adguardHome.adminPasswordHash must be set or sops secret adguard-admin-password must exist";
     }];
 
+    # Génération du certificat auto-signé pour HTTPS
+    systemd.services.adguardhome-cert-setup = mkIf cfg.enableHTTPS {
+      description = "Generate self-signed certificate for AdGuard Home";
+      wantedBy = [ "multi-user.target" ];
+      before = [ "adguardhome.service" ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+
+      script = ''
+        CERT_DIR="/var/lib/adguardhome/certs"
+        mkdir -p "$CERT_DIR"
+
+        if [ ! -f "$CERT_DIR/adguard.crt" ] || [ ! -f "$CERT_DIR/adguard.key" ]; then
+          echo "Generating self-signed certificate for AdGuard Home..."
+          ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:4096 \
+            -keyout "$CERT_DIR/adguard.key" \
+            -out "$CERT_DIR/adguard.crt" \
+            -days 3650 -nodes \
+            -subj "/CN=adguard.local/O=NixOS Kid/C=FR"
+
+          chmod 600 "$CERT_DIR/adguard.key"
+          chmod 644 "$CERT_DIR/adguard.crt"
+          chown -R adguardhome:adguardhome "$CERT_DIR"
+        fi
+      '';
+    };
+
     services.adguardhome = {
       enable = true;
       mutableSettings = false;
@@ -42,6 +81,22 @@ in
       port = 3000;
 
       settings = {
+        tls = mkIf cfg.enableHTTPS {
+          enabled = true;
+          server_name = "adguard.local";
+          force_https = false;
+          port_https = 3000;
+          port_dns_over_tls = 853;
+          port_dns_over_quic = 784;
+          port_dnscrypt = 0;
+          dnscrypt_config_file = "";
+          allow_unencrypted_doh = true;
+          certificate_chain = "/var/lib/adguardhome/certs/adguard.crt";
+          private_key = "/var/lib/adguardhome/certs/adguard.key";
+          certificate_path = "";
+          private_key_path = "";
+          strict_sni_check = false;
+        };
         users = [
           {
             name = "admin";

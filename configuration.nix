@@ -21,9 +21,10 @@
   # ===================================================================
 
   kidFriendly = {
-    # AdGuard Home avec configuration immuable
+    # AdGuard Home avec configuration immuable (HTTPS activé par défaut sur port 3000)
     adguardHome = {
       enable = true;
+      # enableHTTPS = true; # Par défaut, active HTTPS avec certificat auto-signé
 
       # IMPORTANT: Remplacez par votre hash bcrypt
       # Générer avec: htpasswd -B -n -b admin VotreMotDePasse

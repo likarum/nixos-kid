@@ -48,6 +48,7 @@ Configuration NixOS pour laptop enfant avec **filtrage DNS local via AdGuard Hom
 ## 🎯 Objectifs
 
 - ✅ **Filtrage DNS local** : AdGuard Home sur `127.0.0.1:53`
+- ✅ **Interface admin sécurisée** : HTTPS sur port 3000 (certificat auto-signé)
 - ✅ **Blocage DoH/DoT** : Impossible de bypass via DNS-over-HTTPS ou DNS-over-TLS
 - ✅ **Policies navigateurs** : Firefox et Chromium verrouillés anti-DoH
 - ✅ **Firewall strict** : Blocage IPs DoH publics (Cloudflare, Google, Quad9)
@@ -224,9 +225,10 @@ Créez `/etc/nixos/configuration.nix` :
     # SOPS secrets management
     sops.enable = true;
 
-    # AdGuard Home
+    # AdGuard Home (HTTPS activé par défaut sur port 3000)
     adguardHome = {
       enable = true;
+      # enableHTTPS = true; # Par défaut, active HTTPS avec certificat auto-signé
       # Le hash sera lu depuis config.sops.secrets.adguard-admin-password.path
     };
 
@@ -331,7 +333,7 @@ Créez `/etc/nixos/configuration.nix` :
 sudo nix flake update /etc/nixos
 
 # Appliquer la configuration
-sudo nixos-rebuild switch --flake /etc/nixos#laptop-enfant
+sudo nixos-rebuild switch --flake /etc/nixos
 ```
 
 ## 📁 Structure des fichiers
@@ -435,11 +437,14 @@ ping steampowered.com   # Doit fonctionner (Steam autorisé)
 ### Test 8 : Interface admin AdGuard Home
 
 ```bash
-# Depuis un navigateur sur le LAN
-http://IP_DU_LAPTOP:3000
+# Depuis un navigateur sur le LAN (HTTPS par défaut)
+https://IP_DU_LAPTOP:3000
 
 # Login : admin
 # Mot de passe : celui utilisé pour générer le hash
+
+# Note : Le certificat est auto-signé, votre navigateur affichera un avertissement
+# Cliquez sur "Avancé" et acceptez le certificat
 ```
 
 ## 🔧 Personnalisation
@@ -488,6 +493,35 @@ kidFriendly.servicesBlocklist = {
 - `blockRoblox` : Roblox
 - `blockMinecraftUnofficial` : Serveurs Minecraft non-officiels
 - `blockSteam` : Steam (défaut: `false`)
+
+### Configuration HTTPS de l'interface AdGuard Home
+
+Par défaut, l'interface web AdGuard Home écoute en **HTTPS sur le port 3000** avec un certificat auto-signé généré automatiquement.
+
+**Pour désactiver HTTPS (non recommandé) :**
+
+```nix
+kidFriendly.adguardHome = {
+  enable = true;
+  enableHTTPS = false;  # Désactive HTTPS (HTTP uniquement)
+};
+```
+
+**Certificat auto-signé :**
+- Le certificat est généré automatiquement dans `/var/lib/adguardhome/certs/`
+- Validité : 10 ans
+- CN : `adguard.local`
+- Votre navigateur affichera un avertissement de sécurité (normal pour un certificat auto-signé)
+- Vous devrez accepter le certificat une fois pour accéder à l'interface
+
+**Pour utiliser votre propre certificat :**
+
+Modifiez directement [modules/adguard-home.nix](modules/adguard-home.nix) et remplacez les chemins dans la section `tls` :
+
+```nix
+certificate_chain = "/chemin/vers/votre/cert.crt";
+private_key = "/chemin/vers/votre/cert.key";
+```
 
 ### Changer les upstreams DNS
 
@@ -538,7 +572,7 @@ cd /etc/nixos/nixos-kid
 git pull
 
 # Puis reconstruire
-sudo nixos-rebuild switch --flake /etc/nixos#laptop-enfant
+sudo nixos-rebuild switch --flake /etc/nixos
 ```
 
 ## 🛠️ Dépannage

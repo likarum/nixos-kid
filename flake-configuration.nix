@@ -18,9 +18,10 @@
     # SOPS secrets management
     sops.enable = true;
 
-    # AdGuard Home
+    # AdGuard Home (HTTPS activé par défaut sur port 3000)
     adguardHome = {
       enable = true;
+      # enableHTTPS = true; # Par défaut, active HTTPS avec certificat auto-signé
       # Le hash sera lu depuis config.sops.secrets.adguard-admin-password.path
     };
 
