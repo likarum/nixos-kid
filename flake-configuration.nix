@@ -126,7 +126,9 @@
     git
     dig
     apacheHttpd
+    sops     # Pour éditer secrets.yaml
+    age      # Pour la gestion des clés
   ];
 
-  system.stateVersion = "24.05";
+  system.stateVersion = "25.11";
 }
