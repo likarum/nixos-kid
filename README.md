@@ -51,8 +51,9 @@ Configuration NixOS pour laptop enfant avec **filtrage DNS local via AdGuard Hom
 - ✅ **Blocage DoH/DoT** : Impossible de bypass via DNS-over-HTTPS ou DNS-over-TLS
 - ✅ **Policies navigateurs** : Firefox et Chromium verrouillés anti-DoH
 - ✅ **Firewall strict** : Blocage IPs DoH publics (Cloudflare, Google, Quad9)
+- ✅ **Blocage services** : Réseaux sociaux, gaming platforms, streaming (sauf Steam)
 - ✅ **Utilisateur sans sudo** : Enfant ne peut pas modifier la config système
-- ✅ **Secrets séparés** : Mots de passe dans fichier externe non-commité
+- ✅ **Secrets chiffrés** : Gestion sécurisée avec sops-nix (age encryption)
 
 ## 🏗️ Architecture
 
@@ -62,9 +63,13 @@ Applications (Firefox, Chromium, etc.)
          ▼
 AdGuard Home (127.0.0.1:53)
   - SafeSearch forcé
-  - Listes de blocage
+  - Listes de blocage (porn, gambling, malware)
   - Filtrage parental
-         │ Upstream DNS queries (DoH)
+  - Blocage services (Facebook, TikTok, etc.)
+         │ Bootstrap DNS (UDP port 53)
+         ▼
+Bootstrap DNS (94.140.14.14, 193.110.81.0)
+         │ Upstream DNS queries (DoH via port 443)
          ▼
 Providers DNS autorisés UNIQUEMENT
   - AdGuard DNS (94.140.14.14)
@@ -76,10 +81,12 @@ Providers DNS autorisés UNIQUEMENT
 
 | Module | Description |
 |--------|-------------|
+| [sops.nix](modules/sops.nix) | Gestion secrets avec sops-nix (age) |
 | [adguard-home.nix](modules/adguard-home.nix) | AdGuard Home avec config immuable |
 | [dns-enforcement.nix](modules/dns-enforcement.nix) | Force DNS local uniquement |
 | [browser-policies.nix](modules/browser-policies.nix) | Policies Firefox/Chromium anti-DoH |
-| [firewall.nix](modules/firewall.nix) | Blocage firewall DoH providers |
+| [firewall.nix](modules/firewall.nix) | Blocage firewall DoH + bootstrap DNS |
+| [services-blocklist.nix](modules/services-blocklist.nix) | Blocage services (social media, gaming) |
 
 ## 🚀 Installation (avec flakes)
 
@@ -87,17 +94,43 @@ Providers DNS autorisés UNIQUEMENT
 
 ```bash
 cd /etc/nixos
-git clone https://github.com/VOTRE-USERNAME/nixos-kid.git
+git clone https://github.com/likarum/nixos-kid.git
 ```
 
-### 2. Créer le fichier secrets.nix
+### 2. Générer la clé age pour sops
 
 ```bash
-cd /etc/nixos/nixos-kid
-cp secrets.nix.example secrets.nix
+# Créer le répertoire
+sudo mkdir -p /var/lib/sops-nix
+
+# Générer la clé age
+sudo age-keygen -o /var/lib/sops-nix/key.txt
+
+# Afficher la clé publique (pour .sops.yaml)
+sudo age-keygen -y /var/lib/sops-nix/key.txt
 ```
 
-### 3. Générer le hash bcrypt pour AdGuard Home
+**Exemple de sortie :**
+```
+Public key: age1abc123xyz789EXEMPLE
+```
+
+### 3. Configurer .sops.yaml
+
+Éditez `/etc/nixos/nixos-kid/.sops.yaml` et remplacez `YOUR_AGE_PUBLIC_KEY` par votre clé publique :
+
+```yaml
+keys:
+  - &admin age1abc123xyz789EXEMPLE  # Votre clé publique ici
+
+creation_rules:
+  - path_regex: secrets\.yaml$
+    key_groups:
+      - age:
+          - *admin
+```
+
+### 4. Générer le hash bcrypt pour AdGuard Home
 
 ```bash
 # Entrer dans un shell avec htpasswd
@@ -114,31 +147,39 @@ admin:$2y$10$abc123xyz789EXEMPLE_HASH
 
 Copiez la partie après `admin:` (le hash commençant par `$2y$10$`)
 
-### 4. Éditer secrets.nix
+### 5. Créer et éditer secrets.yaml avec sops
 
-Ouvrez `/etc/nixos/nixos-kid/secrets.nix` et remplacez les valeurs :
+```bash
+cd /etc/nixos/nixos-kid
 
-```nix
-{
-  # Hash bcrypt du mot de passe admin AdGuard Home
-  adguardAdminPasswordHash = "$2y$10$VOTRE_HASH_ICI";
+# Copier l'exemple
+cp secrets.yaml.example secrets.yaml
 
-  # Mot de passe initial pour l'utilisateur enfant
-  childInitialPassword = "changeme";
-
-  # Nom d'utilisateur de l'enfant
-  childUsername = "enfant";
-
-  # Nom complet de l'enfant
-  childFullName = "Mon Enfant";
-}
+# Éditer avec sops (ouvrira votre éditeur)
+sops secrets.yaml
 ```
 
-**IMPORTANT** : Le fichier `secrets.nix` est dans `.gitignore` et ne sera **JAMAIS** commité. Gardez-le en sécurité !
+Remplacez les valeurs par les vôtres :
 
-### 5. Créer votre flake.nix
+```yaml
+# Hash bcrypt du mot de passe admin AdGuard Home
+adguard-admin-password: $2y$10$VOTRE_HASH_ICI
 
-Créez `/etc/nixos/flake.nix` (voir [example-flake.nix](example-flake.nix)) :
+# Mot de passe initial pour l'utilisateur enfant (sera hashé automatiquement)
+child-initial-password: changeme
+
+# Nom d'utilisateur de l'enfant
+child-username: enfant
+
+# Nom complet de l'enfant
+child-fullname: Mon Enfant
+```
+
+**Sauvegardez et quittez.** Le fichier sera automatiquement chiffré avec age.
+
+### 6. Créer votre flake.nix
+
+Créez `/etc/nixos/flake.nix` :
 
 ```nix
 {
@@ -164,48 +205,96 @@ Créez `/etc/nixos/flake.nix` (voir [example-flake.nix](example-flake.nix)) :
 }
 ```
 
-### 6. Créer votre configuration.nix
+### 7. Créer votre configuration.nix
 
-Créez `/etc/nixos/configuration.nix` (voir [flake-configuration.nix](flake-configuration.nix)) :
+Créez `/etc/nixos/configuration.nix` :
 
 ```nix
 { config, pkgs, ... }:
 
-let
-  # Importer le fichier secrets
-  secrets = import ./nixos-kid/secrets.nix;
-in
 {
   imports = [
     ./hardware-configuration.nix
   ];
 
+  # ===================================================================
+  # CONFIGURATION KIDFRIENDLY
+  # ===================================================================
+
   kidFriendly = {
+    # SOPS secrets management
+    sops.enable = true;
+
+    # AdGuard Home
     adguardHome = {
       enable = true;
-      adminPasswordHash = secrets.adguardAdminPasswordHash;
+      # Le hash sera lu depuis config.sops.secrets.adguard-admin-password.path
     };
 
+    # DNS enforcement
     dnsEnforcement.enable = true;
 
+    # Browser policies
     browserPolicies = {
       enable = true;
       firefox.enable = true;
       chromium.enable = true;
     };
 
+    # Firewall
     firewall = {
       enable = true;
       blockDoHProviders = true;
     };
+
+    # Services blocklist (tout bloqué sauf Steam)
+    servicesBlocklist = {
+      enable = true;
+      # Steam est autorisé par défaut (blockSteam = false)
+      # Pour personnaliser, voir section Personnalisation ci-dessous
+    };
+  };
+
+  # ===================================================================
+  # CONFIGURATION SYSTÈME
+  # ===================================================================
+
+  networking.hostName = "laptop-enfant";
+  time.timeZone = "Europe/Paris";
+  i18n.defaultLocale = "fr_FR.UTF-8";
+
+  # Desktop environment
+  services.xserver = {
+    enable = true;
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
+    xkb.layout = "fr";
+  };
+
+  # Audio
+  sound.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    pulse.enable = true;
+  };
+
+  networking.networkmanager.enable = true;
+
+  # Compte admin parent (avec sudo)
+  users.users.admin = {
+    isNormalUser = true;
+    description = "Parent Admin";
+    extraGroups = [ "wheel" "networkmanager" ];
   };
 
   # Compte enfant (SANS sudo - pas de groupe wheel)
-  users.users.${secrets.childUsername} = {
+  users.users.enfant = {
     isNormalUser = true;
-    description = secrets.childFullName;
+    description = "Enfant";
     extraGroups = [ "networkmanager" "video" "audio" ];
-    initialPassword = secrets.childInitialPassword;
+    # Le mot de passe sera lu depuis sops
+    hashedPasswordFile = config.sops.secrets."child-initial-password".path;
 
     packages = with pkgs; [
       firefox
@@ -219,31 +308,24 @@ in
     ];
   };
 
-  # Configuration système (hostname, locale, desktop, etc.)
-  networking.hostName = "laptop-enfant";
-  time.timeZone = "Europe/Paris";
-  i18n.defaultLocale = "fr_FR.UTF-8";
+  security.sudo.wheelNeedsPassword = true;
 
-  # Desktop environment
-  services.xserver = {
-    enable = true;
-    displayManager.gdm.enable = true;
-    desktopManager.gnome.enable = true;
-    xkb.layout = "fr";
-  };
-
-  # Compte admin parent
-  users.users.admin = {
-    isNormalUser = true;
-    description = "Parent Admin";
-    extraGroups = [ "wheel" "networkmanager" ];
-  };
+  environment.systemPackages = with pkgs; [
+    vim
+    wget
+    curl
+    htop
+    git
+    dig
+    sops     # Pour éditer secrets.yaml
+    age      # Pour la gestion des clés
+  ];
 
   system.stateVersion = "24.05";
 }
 ```
 
-### 7. Appliquer la configuration
+### 8. Appliquer la configuration
 
 ```bash
 # Première fois : générer flake.lock
@@ -262,17 +344,23 @@ Votre `/etc/nixos` devrait ressembler à :
 ├── flake.nix                    # Votre flake principal
 ├── flake.lock                   # Généré automatiquement
 ├── hardware-configuration.nix   # Généré par nixos-generate-config
-├── configuration.nix            # Votre config (importe secrets.nix)
+├── configuration.nix            # Votre config
 └── nixos-kid/                   # Ce dépôt git
     ├── flake.nix
-    ├── secrets.nix              # VOS SECRETS (non-commité)
-    ├── secrets.nix.example      # Modèle
+    ├── .sops.yaml               # Config sops (avec votre clé publique)
+    ├── secrets.yaml             # SECRETS CHIFFRÉS (commitable)
+    ├── secrets.yaml.example     # Modèle
     ├── modules/
+    │   ├── sops.nix
     │   ├── adguard-home.nix
     │   ├── dns-enforcement.nix
     │   ├── browser-policies.nix
-    │   └── firewall.nix
+    │   ├── firewall.nix
+    │   └── services-blocklist.nix
     └── README.md
+
+/var/lib/sops-nix/
+└── key.txt                      # Clé privée age (NE JAMAIS COMMITTER)
 ```
 
 ## 🧪 Tests de sécurité
@@ -304,7 +392,19 @@ dig @8.8.8.8 google.com
 # Connection refused
 ```
 
-### Test 4 : Blocage DoT
+### Test 4 : Bootstrap DNS autorisé
+
+```bash
+# AdGuard DNS bootstrap (doit fonctionner - nécessaire pour AdGuard Home)
+dig @94.140.14.14 google.com
+# Doit renvoyer une réponse
+
+# DNS0.eu bootstrap (doit fonctionner)
+dig @193.110.81.0 google.com
+# Doit renvoyer une réponse
+```
+
+### Test 5 : Blocage DoT
 
 ```bash
 # DNS-over-TLS port 853 (doit échouer)
@@ -312,7 +412,7 @@ kdig +tls @1.1.1.1 google.com
 # Connection refused
 ```
 
-### Test 5 : Policies navigateurs
+### Test 6 : Policies navigateurs
 
 **Firefox :**
 1. Ouvrir `about:config`
@@ -323,10 +423,19 @@ kdig +tls @1.1.1.1 google.com
 1. Ouvrir `chrome://policy`
 2. Vérifier `DnsOverHttpsMode` = `"off"`
 
-### Test 6 : Interface admin AdGuard Home
+### Test 7 : Blocage services
 
 ```bash
-# Depuis un autre appareil sur le LAN
+# Tester depuis le compte enfant
+ping facebook.com       # Doit être bloqué
+ping twitter.com        # Doit être bloqué
+ping steampowered.com   # Doit fonctionner (Steam autorisé)
+```
+
+### Test 8 : Interface admin AdGuard Home
+
+```bash
+# Depuis un navigateur sur le LAN
 http://IP_DU_LAPTOP:3000
 
 # Login : admin
@@ -334,6 +443,51 @@ http://IP_DU_LAPTOP:3000
 ```
 
 ## 🔧 Personnalisation
+
+### Modifier les services bloqués
+
+Par défaut, **tout est bloqué sauf Steam**. Pour personnaliser :
+
+```nix
+kidFriendly.servicesBlocklist = {
+  enable = true;
+
+  # Autoriser certains services
+  blockFacebook = false;      # Autoriser Facebook
+  blockYouTube = false;       # Autoriser YouTube
+  blockDiscord = false;       # Autoriser Discord
+
+  # Bloquer Steam (par défaut autorisé)
+  blockSteam = true;
+
+  # Règles personnalisées
+  customRules = [
+    "||custom-site.com^"      # Bloquer un site
+    "@@||allowed-site.com^"   # Autoriser un site (whitelist)
+  ];
+};
+```
+
+**Services disponibles :**
+- `blockFacebook` : Facebook, Instagram
+- `blockTwitter` : Twitter/X
+- `blockTikTok` : TikTok
+- `blockSnapchat` : Snapchat
+- `blockReddit` : Reddit
+- `blockDiscord` : Discord
+- `blockEpicGames` : Epic Games Store
+- `blockRiotGames` : League of Legends, Valorant
+- `blockBlizzard` : Battle.net
+- `blockEA` : EA/Origin
+- `blockUbisoft` : Ubisoft
+- `blockGOG` : GOG
+- `blockTwitch` : Twitch
+- `blockYouTube` : YouTube
+- `blockNetflix` : Netflix
+- `blockFortnite` : Fortnite
+- `blockRoblox` : Roblox
+- `blockMinecraftUnofficial` : Serveurs Minecraft non-officiels
+- `blockSteam` : Steam (défaut: `false`)
 
 ### Changer les upstreams DNS
 
@@ -348,47 +502,31 @@ upstream_dns = [
 ];
 ```
 
-**Important :** Ajoutez aussi les IPs correspondantes dans `allowedDNSIPs` de [modules/firewall.nix](modules/firewall.nix).
+**Important :** Ajoutez aussi les IPs correspondantes dans `allowedDNSIPs` et `bootstrapDNSIPs` de [modules/firewall.nix](modules/firewall.nix).
 
-### Créer l'utilisateur enfant
+### Bloquer/Autoriser des domaines additionnels
 
-Dans votre `configuration.nix`, créez un utilisateur standard **sans groupe wheel** :
+Via le module AdGuard Home :
 
 ```nix
-users.users.enfant = {
-  isNormalUser = true;
-  description = "Mon Enfant";
-  # PAS de groupe wheel = PAS de sudo
-  extraGroups = [ "networkmanager" "video" "audio" ];
+kidFriendly.adguardHome = {
+  enable = true;
+  extraUserRules = [
+    # Bloquer
+    "||example.com^"
+    "||badsite.net^"
 
-  # Applications pour l'utilisateur
-  packages = with pkgs; [
-    firefox
-    chromium
-    gcompris      # Éducatif
-    tuxmath       # Maths
-    tuxpaint      # Dessin
-    libreoffice
-    vlc
+    # Autoriser (whitelist)
+    "@@||trusted-site.com^"
   ];
 };
-
-# Définir le mot de passe après installation:
-# sudo passwd enfant
 ```
 
-### Bloquer/Autoriser des domaines
+### Éditer les secrets
 
-Dans [modules/adguard-home.nix](modules/adguard-home.nix), section `user_rules` :
-
-```nix
-user_rules = [
-  # Bloquer
-  "||example.com^"
-
-  # Autoriser (whitelist)
-  "@@||trusted-site.com^"
-];
+```bash
+cd /etc/nixos/nixos-kid
+sops secrets.yaml
 ```
 
 ## 🔄 Mise à jour
@@ -410,6 +548,9 @@ sudo nixos-rebuild switch --flake /etc/nixos#laptop-enfant
 ```bash
 sudo journalctl -u adguardhome -f
 sudo lsof -i :53
+
+# Vérifier si un autre service utilise le port 53
+sudo systemctl status systemd-resolved
 ```
 
 ### Interface admin inaccessible
@@ -417,6 +558,9 @@ sudo lsof -i :53
 ```bash
 sudo ss -tulpn | grep 3000
 sudo iptables -L INPUT -n | grep 3000
+
+# Vérifier les logs AdGuard
+sudo journalctl -u adguardhome -n 50
 ```
 
 ### DNS ne fonctionne pas
@@ -425,18 +569,82 @@ sudo iptables -L INPUT -n | grep 3000
 cat /etc/resolv.conf
 dig @127.0.0.1 google.com
 curl http://127.0.0.1:3000
+
+# Vérifier les règles firewall
+sudo iptables -L OUTPUT -n | grep 53
 ```
 
-### Erreur "secrets.nix not found"
+### Erreur sops "no key found"
 
-Assurez-vous d'avoir créé `/etc/nixos/nixos-kid/secrets.nix` à partir de `secrets.nix.example`.
+```bash
+# Vérifier que la clé age existe
+sudo cat /var/lib/sops-nix/key.txt
+
+# Vérifier .sops.yaml
+cat /etc/nixos/nixos-kid/.sops.yaml
+
+# Régénérer secrets.yaml si nécessaire
+cd /etc/nixos/nixos-kid
+cp secrets.yaml.example secrets.yaml
+sops secrets.yaml
+```
+
+### Bootstrap DNS ne fonctionne pas
+
+```bash
+# Vérifier les règles firewall bootstrap
+sudo iptables -L OUTPUT -n | grep 94.140.14.14
+sudo iptables -L OUTPUT -n | grep 193.110.81.0
+
+# Tester manuellement
+dig @94.140.14.14 google.com
+```
+
+## 📚 Listes de blocage actives
+
+Le module AdGuard Home utilise les listes suivantes (mises à jour automatiquement) :
+
+1. **AdGuard DNS filter** - Blocage ads généraux
+2. **AdAway Default Blocklist** - Blocage ads mobiles
+3. **StevenBlack Unified hosts** - Blocage malware/ads
+4. **StevenBlack Fakenews + Gambling + Porn** - Contenus inappropriés
+5. **BlockList Project - Porn** - Contenus pornographiques
+6. **BlockList Project - Gambling** - Sites de jeux d'argent
+7. **BlockList Project - Redirect** - Redirections malveillantes
+8. **HaGeZi Pro Blocklist** - Liste complète et maintenue
+
+## 🔐 Sécurité des secrets
+
+### Sauvegarde de la clé age
+
+**CRITIQUE :** Sauvegardez `/var/lib/sops-nix/key.txt` dans un endroit sûr (coffre-fort de mots de passe, clé USB chiffrée, etc.). Sans cette clé, vous ne pourrez plus déchiffrer vos secrets !
+
+```bash
+# Sauvegarder la clé (à faire IMMÉDIATEMENT après génération)
+sudo cp /var/lib/sops-nix/key.txt ~/backup-age-key.txt
+chmod 600 ~/backup-age-key.txt
+# Copier ce fichier dans un endroit sûr puis le supprimer
+```
+
+### Permissions
+
+```bash
+# Vérifier les permissions de la clé
+sudo ls -l /var/lib/sops-nix/key.txt
+# Doit être: -rw------- 1 root root
+
+# Permissions du fichier secrets.yaml
+ls -l /etc/nixos/nixos-kid/secrets.yaml
+# Peut être -rw-r--r-- (le fichier est chiffré)
+```
 
 ## 📚 Ressources
 
-- [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome)
+- [sops-nix](https://github.com/Mic92/sops-nix) - Secrets Operations pour NixOS
+- [age](https://github.com/FiloSottile/age) - Simple, modern encryption tool
+- [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome) - DNS filtering
 - [NixOS Manual](https://nixos.org/manual/nixos/stable/)
 - [NixOS Flakes](https://nixos.wiki/wiki/Flakes)
-- [NixOS Firewall](https://nixos.wiki/wiki/Firewall)
 
 ## ⚠️ Avertissement
 
@@ -446,7 +654,8 @@ Assurez-vous d'avoir créé `/etc/nixos/nixos-kid/secrets.nix` à partir de `sec
 - Discutez avec l'enfant de sécurité en ligne
 - Adaptez selon l'âge et la maturité
 - Gardez le système à jour
-- **Sécurisez votre fichier `secrets.nix`** (permissions 600 recommandées)
+- **Sauvegardez votre clé age** dans un endroit sûr
+- **Ne commitez JAMAIS** `/var/lib/sops-nix/key.txt`
 
 ## 📄 Licence
 
