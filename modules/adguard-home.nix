@@ -1,27 +1,14 @@
 { config, lib, pkgs, ... }:
 
-with lib;
-
 let
   cfg = config.kidFriendly.adguardHome;
 in
 {
   options.kidFriendly.adguardHome = {
-    enable = mkEnableOption "AdGuard Home DNS filtering";
+    enable = lib.mkEnableOption "AdGuard Home DNS filtering";
 
-    adminPasswordHash = mkOption {
-      type = types.str;
-      default = "";
-      description = ''
-        Hash bcrypt du mot de passe admin.
-        Si vide, utilise config.sops.secrets.adguard-admin-password.path
-        Générer avec : htpasswd -B -n -b admin VotreMotDePasse
-        Ou avec : echo -n "VotreMotDePasse" | mkpasswd -m bcrypt -s
-      '';
-    };
-
-    enableHTTPS = mkOption {
-      type = types.bool;
+    enableHTTPS = lib.mkOption {
+      type = lib.types.bool;
       default = true;
       description = ''
         Activer HTTPS pour l'interface web AdGuard Home.
@@ -29,23 +16,29 @@ in
       '';
     };
 
-    extraUserRules = mkOption {
-      type = types.listOf types.str;
+    extraUserRules = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
       default = [];
       description = "Extra AdGuard Home user rules to add (for blocking services, custom rules, etc.)";
       example = [ "||facebook.com^" "@@||allowed-site.com^" ];
     };
   };
 
-  config = mkIf cfg.enable {
-    # Lire le hash depuis sops si adminPasswordHash est vide
-    assertions = [{
-      assertion = cfg.adminPasswordHash != "" || config.sops.secrets ? "adguard-admin-password";
-      message = "kidFriendly.adguardHome.adminPasswordHash must be set or sops secret adguard-admin-password must exist";
-    }];
+  config = lib.mkIf cfg.enable {
+    # SOPS is mandatory - ensure it's enabled and secret exists
+    assertions = [
+      {
+        assertion = config.kidFriendly.sops.enable;
+        message = "kidFriendly.sops.enable must be true when using adguardHome";
+      }
+      {
+        assertion = config.sops.secrets ? "adguard-admin-password";
+        message = "SOPS secret 'adguard-admin-password' must exist in secrets.yaml";
+      }
+    ];
 
     # Génération du certificat auto-signé pour HTTPS
-    systemd.services.adguardhome-cert-setup = mkIf cfg.enableHTTPS {
+    systemd.services.adguardhome-cert-setup = lib.mkIf cfg.enableHTTPS {
       description = "Generate self-signed certificate for AdGuard Home";
       wantedBy = [ "multi-user.target" ];
       before = [ "adguardhome.service" ];
@@ -81,7 +74,7 @@ in
       port = 3000;
 
       settings = {
-        tls = mkIf cfg.enableHTTPS {
+        tls = lib.mkIf cfg.enableHTTPS {
           enabled = true;
           server_name = "adguard.local";
           force_https = false;
@@ -100,9 +93,8 @@ in
         users = [
           {
             name = "admin";
-            password = if cfg.adminPasswordHash != ""
-                      then cfg.adminPasswordHash
-                      else builtins.readFile config.sops.secrets."adguard-admin-password".path;
+            # Password hash loaded from SOPS secret
+            password = builtins.readFile config.sops.secrets."adguard-admin-password".path;
           }
         ];
 

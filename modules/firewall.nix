@@ -1,7 +1,5 @@
 { config, lib, pkgs, ... }:
 
-with lib;
-
 let
   cfg = config.kidFriendly.firewall;
 
@@ -52,39 +50,48 @@ let
 in
 {
   options.kidFriendly.firewall = {
-    enable = mkEnableOption "Configure le firewall pour bloquer les contournements DNS";
+    enable = lib.mkEnableOption "Configure le firewall pour bloquer les contournements DNS";
 
-    blockDoHProviders = mkOption {
-      type = types.bool;
+    blockDoHProviders = lib.mkOption {
+      type = lib.types.bool;
       default = true;
       description = "Bloque les IPs des providers DoH publics (Cloudflare, Google, Quad9)";
     };
+
+    blockProxiesAndVPN = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Bloque les ports communs utilisés par les proxies et VPN pour empêcher
+        le contournement du filtrage DNS (SOCKS, HTTP proxy, Tor, OpenVPN, WireGuard, etc.)
+      '';
+    };
   };
 
-  config = mkIf cfg.enable {
+  config = lib.mkIf cfg.enable {
     networking.firewall = {
       enable = true;
 
       extraCommands = ''
         # Exception: autoriser bootstrap DNS (UDP port 53) pour AdGuard Home
-        ${concatMapStringsSep "\n" (ip:
-          if hasInfix ":" ip then
+        ${lib.concatMapStringsSep "\n" (ip:
+          if lib.hasInfix ":" ip then
             "ip6tables -I OUTPUT -d ${ip} -p udp --dport 53 -j ACCEPT"
           else
             "iptables -I OUTPUT -d ${ip} -p udp --dport 53 -j ACCEPT"
         ) bootstrapDNSIPs}
 
         # Blocage des serveurs DoH publics (port 443)
-        ${optionalString cfg.blockDoHProviders (concatMapStringsSep "\n" (ip:
-          if hasInfix ":" ip then
+        ${lib.optionalString cfg.blockDoHProviders (lib.concatMapStringsSep "\n" (ip:
+          if lib.hasInfix ":" ip then
             "ip6tables -A OUTPUT -d ${ip} -p tcp --dport 443 -j REJECT --reject-with icmp6-port-unreachable"
           else
             "iptables -A OUTPUT -d ${ip} -p tcp --dport 443 -j REJECT --reject-with icmp-port-unreachable"
         ) blockedDoHIPs)}
 
         # Exception: autoriser nos upstreams DNS (HTTPS)
-        ${concatMapStringsSep "\n" (ip:
-          if hasInfix ":" ip then
+        ${lib.concatMapStringsSep "\n" (ip:
+          if lib.hasInfix ":" ip then
             "ip6tables -I OUTPUT -d ${ip} -p tcp --dport 443 -j ACCEPT"
           else
             "iptables -I OUTPUT -d ${ip} -p tcp --dport 443 -j ACCEPT"
@@ -99,6 +106,35 @@ in
         # Blocage DoT (port 853)
         iptables -A OUTPUT -p tcp --dport 853 -j REJECT --reject-with icmp-port-unreachable
         ip6tables -A OUTPUT -p tcp --dport 853 -j REJECT --reject-with icmp6-port-unreachable
+
+        # Blocage proxies et VPN
+        ${lib.optionalString cfg.blockProxiesAndVPN ''
+          # SOCKS proxy (port 1080)
+          iptables -A OUTPUT -p tcp --dport 1080 -j REJECT --reject-with icmp-port-unreachable
+          ip6tables -A OUTPUT -p tcp --dport 1080 -j REJECT --reject-with icmp6-port-unreachable
+
+          # HTTP/HTTPS proxies (ports 8080, 3128)
+          iptables -A OUTPUT -p tcp --dport 8080 -j REJECT --reject-with icmp-port-unreachable
+          iptables -A OUTPUT -p tcp --dport 3128 -j REJECT --reject-with icmp-port-unreachable
+          ip6tables -A OUTPUT -p tcp --dport 8080 -j REJECT --reject-with icmp6-port-unreachable
+          ip6tables -A OUTPUT -p tcp --dport 3128 -j REJECT --reject-with icmp6-port-unreachable
+
+          # Tor (port 9050)
+          iptables -A OUTPUT -p tcp --dport 9050 -j REJECT --reject-with icmp-port-unreachable
+          ip6tables -A OUTPUT -p tcp --dport 9050 -j REJECT --reject-with icmp6-port-unreachable
+
+          # OpenVPN (port 1194)
+          iptables -A OUTPUT -p udp --dport 1194 -j REJECT --reject-with icmp-port-unreachable
+          ip6tables -A OUTPUT -p udp --dport 1194 -j REJECT --reject-with icmp6-port-unreachable
+
+          # WireGuard (port 51820)
+          iptables -A OUTPUT -p udp --dport 51820 -j REJECT --reject-with icmp-port-unreachable
+          ip6tables -A OUTPUT -p udp --dport 51820 -j REJECT --reject-with icmp6-port-unreachable
+
+          # PPTP VPN (port 1723)
+          iptables -A OUTPUT -p tcp --dport 1723 -j REJECT --reject-with icmp-port-unreachable
+          ip6tables -A OUTPUT -p tcp --dport 1723 -j REJECT --reject-with icmp6-port-unreachable
+        ''}
       '';
 
       extraStopCommands = ''
@@ -120,7 +156,7 @@ in
       script = ''
         echo "Checking firewall rules..."
 
-        ${optionalString cfg.blockDoHProviders ''
+        ${lib.optionalString cfg.blockDoHProviders ''
           if iptables -L OUTPUT -n | grep -q "REJECT.*443"; then
             echo "DoH providers blocking rules: OK"
           else
@@ -139,6 +175,14 @@ in
         else
           echo "WARNING: DoT blocking rules not found!"
         fi
+
+        ${lib.optionalString cfg.blockProxiesAndVPN ''
+          if iptables -L OUTPUT -n | grep -q "REJECT.*tcp dpt:1080"; then
+            echo "Proxy/VPN blocking: OK"
+          else
+            echo "WARNING: Proxy/VPN blocking rules not found!"
+          fi
+        ''}
 
         echo "Firewall rules check completed"
       '';

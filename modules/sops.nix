@@ -1,22 +1,28 @@
 { config, lib, pkgs, ... }:
 
-with lib;
-
 let
   cfg = config.kidFriendly.sops;
 in
 {
   options.kidFriendly.sops = {
-    enable = mkEnableOption "SOPS secrets management for nixos-kid";
+    enable = lib.mkEnableOption "SOPS secrets management for nixos-kid";
 
-    secretsFile = mkOption {
-      type = types.path;
-      default = /etc/nixos/nixos-kid/secrets.yaml;
-      description = "Path to the encrypted secrets.yaml file";
+    secretsFile = lib.mkOption {
+      type = lib.types.path;
+      example = "/etc/nixos/nixos-kid/secrets.yaml";
+      description = ''
+        Path to the encrypted secrets.yaml file.
+        This must be set to your actual secrets.yaml location.
+      '';
     };
   };
 
-  config = mkIf cfg.enable {
+  config = lib.mkIf cfg.enable {
+    assertions = [{
+      assertion = cfg.secretsFile != null;
+      message = "kidFriendly.sops.secretsFile must be set to your secrets.yaml path";
+    }];
+
     sops = {
       defaultSopsFile = cfg.secretsFile;
 
