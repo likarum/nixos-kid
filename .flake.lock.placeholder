@@ -1,0 +1,10 @@
+⚠️  IMPORTANT: This flake.lock is a placeholder
+
+The actual flake.lock must be generated on a NixOS machine with:
+
+    nix flake lock
+
+This placeholder is committed to show the intent of having a locked flake,
+but it will be regenerated with actual hashes when the PR is tested.
+
+See TEST_PROTOCOL.md for the complete test procedure.
