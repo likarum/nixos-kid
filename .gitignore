@@ -1,12 +1,29 @@
-# Fichiers de build Nix
+# Nix build outputs
 result
 result-*
 
-# Fichiers temporaires
+# Nix development
+.direnv/
+.envrc
+
+# Editor files
 *~
 *.swp
 *.swo
-.DS_Store
+.vscode/
+.idea/
 
-# Fichiers de lock (peuvent être committés ou non selon préférence)
-# flake.lock
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+*.tmp
+.cache/
+
+# Secrets (passwords, hashes, etc.)
+secrets.nix

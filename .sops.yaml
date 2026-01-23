@@ -1,0 +1,25 @@
+# Configuration SOPS pour nixos-kid
+#
+# DEUX CLÉS SONT NÉCESSAIRES:
+#
+# 1. Clé SSH de l'hôte NixOS (pour que la machine déchiffre les secrets au boot)
+#    Convertir la clé SSH en format age:
+#      ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
+#    Résultat: age1xxxx... (à mettre dans &host ci-dessous)
+#
+# 2. Clé age de l'admin (pour éditer secrets.yaml depuis votre poste)
+#    Générer une clé age personnelle:
+#      age-keygen -o ~/.config/sops/age/keys.txt
+#      age-keygen -y ~/.config/sops/age/keys.txt  # Affiche la clé publique
+#    Résultat: age1xxxx... (à mettre dans &admin ci-dessous)
+
+keys:
+  - &host YOUR_SSH_HOST_KEY
+  - &admin YOUR_ADMIN_AGE_KEY
+
+creation_rules:
+  - path_regex: secrets\.yaml$
+    key_groups:
+      - age:
+          - *host
+          - *admin

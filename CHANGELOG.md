@@ -1,125 +1,103 @@
 # Changelog
 
-Toutes les modifications notables de ce projet seront documentées dans ce fichier.
+All notable changes to this project will be documented in this file.
 
-Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
-et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-12-09
+## [2.0.0] - 2026-01-20
 
-### Ajouté
-- Module principal `kid-friendly.nix` avec configuration complète
-- Module `education.nix` avec applications éducatives
-  - GCompris (suite éducative de 100+ activités)
-  - Tux Paint (dessin pour enfants)
-  - Childsplay (jeux éducatifs)
-  - Tux Typing (apprentissage du clavier)
-  - KTurtle (programmation Logo)
-  - gBrainy (jeux de logique)
-  - PySioGame (activités éducatives)
-  - Tux Math (mathématiques)
-  - LibreOffice (suite bureautique)
-  - GeoGebra (géométrie interactive)
-  - Stellarium (planétarium)
+### 🚨 Breaking Changes
 
-- Module `games.nix` avec jeux adaptés aux enfants
-  - SuperTux (plateforme 2D)
-  - SuperTuxKart (course de kart 3D)
-  - Frozen Bubble (puzzle)
-  - Extreme Tux Racer (course de pingouin)
-  - Minetest (type Minecraft)
-  - PySolFC (jeux de cartes)
-  - Jeux GNOME (2048, Quadrapassel, Aisleriot, etc.)
-  - Pingus (type Lemmings)
-  - Neverball (jeu d'adresse)
-  - LBreakout2 (casse-briques)
-  - Bomber Clone (type Bomberman)
+- **SOPS is now mandatory**: Removed support for plaintext password hash in configuration
+  - `kidFriendly.adguardHome.adminPasswordHash` option has been removed
+  - All secrets must now be managed through SOPS encryption
+  - Migration required: see `setup.sh` or README for setup instructions
 
-- Module `parental.nix` avec contrôles parentaux
-  - Filtrage DNS (OpenDNS FamilyShield)
-  - Blocage des droits root/sudo
-  - Configuration Firefox sécurisée avec Qwant Junior
-  - Limite de temps d'écran quotidien
-  - Restrictions horaires configurable
-  - Service de monitoring du temps d'écran
+- **Flake is now properly locked**: Added `flake.lock` for reproducible builds
+  - Previous installations may need to run `nix flake update` to refresh dependencies
 
-- Configuration complète en français
-  - Locale fr_FR.UTF-8
-  - Clavier AZERTY
-  - Toutes les applications en français
-  - Variables d'environnement forcées en français
+- **Removed obsolete files**:
+  - `secrets.nix.example` (plaintext mode, no longer supported)
+  - `configuration.nix` (replaced by `flake-configuration.nix` with SOPS examples)
 
-- Support de trois environnements de bureau
-  - GNOME (par défaut)
-  - KDE Plasma
-  - XFCE
+### ✨ Added
 
-- Connexion automatique configurable
-- Création automatique de l'utilisateur enfant
-- Dossiers prédéfinis (Créations, Dessins, Devoirs)
+- **Automated setup script** (`setup.sh`)
+  - Automatically converts SSH host key to age format
+  - Generates encrypted `secrets.yaml` with user prompts
+  - Validates SOPS configuration
 
-### Documentation
-- README.md complet avec instructions d'installation
-- APPLICATIONS.md détaillant toutes les applications
-- TROUBLESHOOTING.md pour résoudre les problèmes courants
-- example-configuration.nix pour faciliter l'intégration
-- LICENSE MIT
-- Ce CHANGELOG
+- **Proxy and VPN blocking** (`kidFriendly.firewall.blockProxiesAndVPN`)
+  - Blocks SOCKS proxy (port 1080)
+  - Blocks HTTP/HTTPS proxies (ports 8080, 3128)
+  - Blocks Tor (port 9050)
+  - Blocks OpenVPN (port 1194)
+  - Blocks WireGuard (port 51820)
+  - Blocks PPTP VPN (port 1723)
+  - Enabled by default
 
-### Fonctionnalités
-- Architecture modulaire permettant d'activer/désactiver chaque fonctionnalité
-- Configuration par flake pour faciliter l'intégration
-- Support de l'accélération matérielle pour les jeux 3D
-- Configuration audio complète (PipeWire)
-- Support de l'impression
-- Polices adaptées et lisibles
+- **Integration tests** (`tests/default.nix`)
+  - Automated testing with `nix flake check`
+  - Tests AdGuard Home, DNS enforcement, firewall rules, browser policies
+  - Validates all services start correctly
 
-### Sécurité
-- DNS filtré par défaut
-- Navigateur avec page d'accueil sécurisée (Qwant Junior)
-- Pas d'accès root pour l'enfant
-- Mode Safe Browsing activé
-- Blocage des pop-ups
+- **Flake enhancements**:
+  - Added `formatter` output (nixpkgs-fmt)
+  - Added `checks` output for automated testing
+  - Multi-arch support (x86_64-linux, aarch64-linux)
 
-## [Prévu pour les prochaines versions]
+- **Documentation**:
+  - New `CHANGELOG.md` (this file)
+  - New `CONTRIBUTING.md` with development guidelines
+  - Updated `example-flake.nix` with comprehensive SOPS usage examples
+  - `.gitattributes` to mark `flake.lock` as generated
 
-### [1.1.0] - À venir
-- Ajout de profils par âge (3-5 ans, 6-8 ans, 9-12 ans, 13+)
-- Interface de configuration graphique pour les parents
-- Dashboard de monitoring du temps d'écran
-- Support de comptes multiples enfants
-- Rapports d'activité hebdomadaires
-- Synchronisation cloud des créations (optionnel)
+### 🔧 Changed
 
-### [1.2.0] - À venir
-- Intégration de plus d'applications éducatives
-- Support de tablettes graphiques
-- Mode "devoirs" avec applications limitées
-- Système de récompenses/achievements
-- Support de contrôleurs de jeu
-- Mode kiosque complet
+- **Modernized Nix code style**:
+  - Removed `with lib;` in favor of explicit `lib.` prefix
+  - Better readability and maintenance
 
-### Idées futures
-- Application mobile companion pour les parents
-- IA pour suggestions d'activités éducatives
-- Support de contenus éducatifs en ligne (videos, podcasts)
-- Intégration avec les programmes scolaires français
-- Contrôle parental avancé avec filtrage par catégories
-- Support de profils d'apprentissage personnalisés
-- Mode multijoueur local pour activités en famille
+- **SOPS module improvements**:
+  - `secretsFile` option is now required (no hardcoded default path)
+  - Better error messages when SOPS is not configured
+  - Enabled by default in the `default` module
 
----
+- **AdGuard Home module**:
+  - Strict assertions ensure SOPS is enabled
+  - Clearer error messages for missing secrets
 
-## Comment contribuer
+### 📝 Documentation
 
-Vos suggestions sont les bienvenues ! Pour proposer une nouvelle fonctionnalité :
+- Complete rewrite of README.md for v2.0
+  - Removed all references to plaintext password mode
+  - Simplified installation to 3 steps with `setup.sh`
+  - Better structured with clear prerequisites
+  - Updated examples to use SOPS exclusively
 
-1. Créez une issue sur GitHub décrivant la fonctionnalité
-2. Discutez-en avec la communauté
-3. Soumettez une pull request
+### 🔐 Security
 
-## Versioning
+- All secrets now encrypted at rest with SOPS/age
+- SSH host key used for encryption (simpler than dedicated age keys)
+- No plaintext secrets in configuration files
+- Enhanced proxy/VPN blocking prevents DNS bypass attempts
 
-- **MAJOR** : Changements incompatibles avec les versions précédentes
-- **MINOR** : Ajout de fonctionnalités compatibles
-- **PATCH** : Corrections de bugs
+### 🐛 Fixed
+
+- Flake is now properly reproducible with `flake.lock`
+- Better validation of SOPS configuration at build time
+- Fixed potential issues with undefined `secretsFile` path
+
+## [1.0.0] - 2026-01-19
+
+Initial release with basic kid-friendly features:
+- AdGuard Home DNS filtering
+- DNS enforcement
+- Browser policies (Firefox, Chromium)
+- Firewall rules blocking DoH/DoT
+- Services blocklist
+- Optional SOPS support
+
+[2.0.0]: https://github.com/likarum/nixos-kid/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/likarum/nixos-kid/releases/tag/v1.0.0

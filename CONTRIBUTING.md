@@ -1,258 +1,218 @@
-# Guide de Contribution
+# Contributing to nixos-kid
 
-Merci de votre intérêt pour contribuer à NixOS Kid-Friendly ! Ce document explique comment participer au projet.
+Thank you for considering contributing to nixos-kid! This document provides guidelines and instructions for contributing.
 
-## Comment contribuer ?
+## 🚀 Getting Started
 
-Il existe plusieurs façons de contribuer :
+### Prerequisites
 
-1. **Rapporter des bugs** - Signalez les problèmes que vous rencontrez
-2. **Suggérer des fonctionnalités** - Proposez de nouvelles idées
-3. **Améliorer la documentation** - Corrigez ou enrichissez la documentation
-4. **Soumettre du code** - Ajoutez des fonctionnalités ou corrigez des bugs
-5. **Tester** - Testez les nouvelles versions et donnez votre retour
+- NixOS or Nix with flakes enabled
+- Basic understanding of Nix language and NixOS modules
+- `sops` for testing secrets management
 
-## Rapporter un Bug
+### Development Setup
 
-Avant de créer une issue :
-1. Vérifiez qu'une issue similaire n'existe pas déjà
-2. Consultez le [guide de dépannage](TROUBLESHOOTING.md)
-3. Testez avec la dernière version
-
-Incluez dans votre rapport :
-- Version de NixOS
-- Architecture système
-- Environnement de bureau utilisé
-- Configuration pertinente
-- Logs ou messages d'erreur
-- Étapes pour reproduire le problème
-
-## Suggérer une Fonctionnalité
-
-Avant de suggérer :
-1. Vérifiez que ça n'existe pas déjà
-2. Consultez les issues existantes
-3. Assurez-vous que c'est pertinent pour un environnement enfant
-
-Dans votre suggestion, précisez :
-- Le besoin ou problème à résoudre
-- La solution proposée
-- Les alternatives envisagées
-- L'âge cible des enfants
-- La disponibilité en français
-
-## Soumettre du Code
-
-### Prérequis
-
-- Connaissance de Nix et NixOS
-- Accès à une machine NixOS pour tester
-- Compte GitHub
-
-### Processus
-
-1. **Fork le repository**
+1. **Clone the repository**
    ```bash
-   # Via l'interface GitHub
-   ```
-
-2. **Clonez votre fork**
-   ```bash
-   git clone https://github.com/VOTRE-USERNAME/nixos-kid.git
+   git clone https://github.com/likarum/nixos-kid.git
    cd nixos-kid
    ```
 
-3. **Créez une branche**
+2. **Enable flakes** (if not already enabled)
    ```bash
-   git checkout -b feature/ma-nouvelle-fonctionnalite
-   # ou
-   git checkout -b fix/correction-bug
+   # Add to /etc/nixos/configuration.nix or ~/.config/nix/nix.conf
+   nix.settings.experimental-features = [ "nix-command" "flakes" ];
    ```
 
-4. **Faites vos modifications**
-   - Suivez les conventions du projet
-   - Testez vos changements
-   - Documentez le code si nécessaire
-
-5. **Testez votre code**
+3. **Run automated tests**
    ```bash
-   # Vérifiez la syntaxe
-   nix flake check --no-build
-
-   # Testez sur un système réel
-   sudo nixos-rebuild test --flake .#
+   nix flake check
    ```
 
-6. **Committez vos changements**
+4. **Format code**
    ```bash
-   git add .
-   git commit -m "feat: ajoute telle fonctionnalité"
-   # ou
-   git commit -m "fix: corrige tel bug"
+   nix fmt
    ```
 
-7. **Poussez vers votre fork**
-   ```bash
-   git push origin feature/ma-nouvelle-fonctionnalite
-   ```
+## 📝 Code Style
 
-8. **Créez une Pull Request**
-   - Via l'interface GitHub
-   - Décrivez clairement les changements
-   - Référencez les issues liées
+### Nix Code
 
-### Conventions de Code
+- Use explicit `lib.` prefix instead of `with lib;`
+- Use `lib.mkEnableOption`, `lib.mkOption`, etc. explicitly
+- Add descriptive comments for complex logic
+- Keep lines under 100 characters when possible
 
-#### Style Nix
+**Example:**
 ```nix
-# Utilisez 2 espaces pour l'indentation
-{
-  option = {
-    enable = mkEnableOption "Description";
+{ config, lib, pkgs, ... }:
 
-    value = mkOption {
-      type = types.str;
-      default = "valeur";
-      description = "Description de l'option";
+let
+  cfg = config.kidFriendly.myModule;
+in
+{
+  options.kidFriendly.myModule = {
+    enable = lib.mkEnableOption "My awesome module";
+
+    myOption = lib.mkOption {
+      type = lib.types.str;
+      default = "default-value";
+      example = "example-value";
+      description = "What this option does";
     };
   };
+
+  config = lib.mkIf cfg.enable {
+    # Your configuration here
+  };
 }
-
-# Commentaires en français
-# Noms de variables en anglais (convention Nix)
-```
-
-#### Messages de Commit
-
-Suivez la convention [Conventional Commits](https://www.conventionalcommits.org/) :
-
-```
-feat: ajoute support de KDE Plasma
-fix: corrige le clavier AZERTY
-docs: met à jour le README
-refactor: restructure le module games
-test: ajoute tests pour le module parental
-chore: met à jour les dépendances
-```
-
-Exemples :
-```
-feat(education): ajoute l'application Scratch
-fix(parental): corrige le filtrage DNS
-docs(apps): ajoute description de GCompris
-```
-
-### Ajout d'Applications
-
-#### Applications Éducatives
-
-Critères :
-- Appropriée pour des enfants (vérifier l'âge recommandé)
-- Disponible en français (ou multilingue avec support FR)
-- Open source de préférence
-- Stable et maintenue
-- Disponible dans nixpkgs
-
-Processus :
-1. Ajoutez l'option dans `modules/education.nix`
-2. Documentez dans `APPLICATIONS.md`
-3. Testez l'installation
-4. Vérifiez que l'interface est bien en français
-
-Exemple :
-```nix
-scratch = mkOption {
-  type = types.bool;
-  default = false;
-  description = "Scratch - Programmation visuelle pour enfants";
-};
-
-# Plus loin dans le fichier
-(optional cfg.scratch scratch)
-```
-
-#### Jeux
-
-Mêmes critères, mais ajoutez dans `modules/games.nix`
-
-Assurez-vous que le jeu :
-- N'a pas de contenu violent/inapproprié
-- Est adapté à l'âge cible (mentionner dans la doc)
-- Fonctionne bien sur NixOS
-- Est amusant ! (testez-le)
-
-### Tests
-
-Avant de soumettre :
-
-```bash
-# Syntaxe
-nix flake check
-
-# Test sur votre système
-sudo nixos-rebuild test --flake .#
-
-# Testez les fonctionnalités spécifiques
-# - Lancez les applications ajoutées
-# - Vérifiez qu'elles sont en français
-# - Testez les contrôles parentaux si modifiés
 ```
 
 ### Documentation
 
-Mettez à jour :
-- `README.md` si nécessaire
-- `APPLICATIONS.md` pour toute nouvelle application
-- `CHANGELOG.md` avec vos modifications
-- Commentaires dans le code
+- All options must have a `description`
+- Complex options should have an `example`
+- Update README.md for user-facing changes
+- Update CHANGELOG.md following [Keep a Changelog](https://keepachangelog.com/)
 
-## Revue de Code
+### Commit Messages
 
-Votre Pull Request sera examinée pour :
-- Qualité du code
-- Respect des conventions
-- Tests effectués
-- Documentation
-- Pertinence pour le projet
+Use conventional commits format:
 
-Soyez patient, les reviews peuvent prendre du temps.
+```
+<type>(<scope>): <subject>
 
-## Code de Conduite
+<body>
 
-### Notre engagement
+<footer>
+```
 
-Ce projet vise à créer un environnement sûr et éducatif pour les enfants. Nous attendons de tous les contributeurs qu'ils :
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
 
-- Soient respectueux et bienveillants
-- Acceptent les critiques constructives
-- Se concentrent sur ce qui est mieux pour les enfants
-- Font preuve d'empathie envers les autres contributeurs
+**Examples:**
+```
+feat(firewall): add proxy/VPN blocking option
 
-### Comportements acceptables
+Add blockProxiesAndVPN option to block common proxy and VPN ports,
+preventing DNS filter bypass attempts.
 
-- Langage respectueux et inclusif
-- Accepter les différents points de vue
-- Critique constructive du code, pas des personnes
-- Focus sur l'intérêt des enfants utilisateurs
+Closes #42
+```
 
-### Comportements inacceptables
+```
+fix(sops): make secretsFile path configurable
 
-- Contenu inapproprié pour un projet destiné aux enfants
-- Harcèlement sous toute forme
-- Trolling ou commentaires insultants
-- Toute autre conduite inappropriée
+Remove hardcoded /etc/nixos/nixos-kid path and make it a required
+option with example value.
 
-## Questions ?
+Breaking change: Users must now set kidFriendly.sops.secretsFile
+```
 
-Si vous avez des questions :
-- Consultez la [documentation](README.md)
-- Lisez les [issues existantes](https://github.com/VOTRE-REPO/nixos-kid/issues)
-- Créez une nouvelle issue avec le tag "question"
+## 🧪 Testing
 
-## Remerciements
+### Running Tests
 
-Merci à tous les contributeurs qui aident à rendre NixOS plus accessible aux enfants !
+```bash
+# Run all checks (includes tests)
+nix flake check
 
-## Licence
+# Build specific test
+nix build .#checks.x86_64-linux.integration
 
-En contribuant, vous acceptez que vos contributions soient sous licence MIT, comme le reste du projet.
+# Run tests in VM
+nix build .#checks.x86_64-linux.integration -L
+```
+
+### Adding Tests
+
+Tests are located in `tests/default.nix`. When adding a new feature:
+
+1. Add test case to `testScript` in `tests/default.nix`
+2. Ensure test validates the feature works correctly
+3. Run `nix flake check` to verify
+
+Example test:
+```python
+# Test that new firewall rule is active
+print("[TEST] Checking my new rule...")
+machine.succeed("iptables -L OUTPUT -n | grep -q 'my-rule'")
+```
+
+## 🔧 Adding a New Module
+
+1. **Create the module file**
+   ```bash
+   touch modules/my-new-module.nix
+   ```
+
+2. **Write the module** (see Code Style above)
+
+3. **Export in flake.nix**
+   ```nix
+   nixosModules = {
+     # ... existing modules ...
+     my-new-module = import ./modules/my-new-module.nix;
+
+     default = {
+       imports = [
+         # ... existing imports ...
+         self.nixosModules.my-new-module
+       ];
+     };
+   };
+   ```
+
+4. **Add tests** in `tests/default.nix`
+
+5. **Document** in README.md
+
+6. **Update CHANGELOG.md**
+
+## 🐛 Reporting Bugs
+
+When reporting bugs, please include:
+
+- NixOS version: `nixos-version`
+- Flake inputs: `nix flake metadata`
+- Minimal reproduction steps
+- Expected vs actual behavior
+- Relevant logs (AdGuard Home, systemd, firewall, etc.)
+
+## 💡 Feature Requests
+
+Feature requests are welcome! Please:
+
+1. Check existing issues first
+2. Explain the use case
+3. Describe the proposed solution
+4. Consider security implications for kid-friendly context
+
+## 🔐 Security Considerations
+
+This project is designed for parental control. When contributing:
+
+- **Never** weaken existing protections without explicit opt-in
+- **Always** consider bypass scenarios (proxies, DNS tunneling, etc.)
+- **Test** that restrictions actually work
+- **Document** any limitations or bypass methods
+- **Remember** technical controls should complement trust and communication
+
+## 📜 License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+## ❓ Questions?
+
+- Open an issue for technical questions
+- Tag maintainers in your PR for review
+- Be patient - this is maintained in free time
+
+## 🙏 Code of Conduct
+
+Be respectful, constructive, and professional. We're all here to create better tools for families.
