@@ -40,11 +40,13 @@
       blockDoHProviders = true;
     };
 
-    # Services blocklist (tout bloqué sauf Steam)
+    # Services blocklist (mode whitelist : tout bloqué par défaut)
     servicesBlocklist = {
       enable = true;
-      # Steam est autorisé par défaut (blockSteam = false)
-      # Tous les autres services sont bloqués par défaut
+      # Seuls les services listés ici sont autorisés, tout le reste est bloqué
+      allowedServices = [ "steam" ];
+      # Exemples pour autoriser d'autres services :
+      # allowedServices = [ "steam" "spotify" "minecraft" "youtube" ];
     };
   };
 
