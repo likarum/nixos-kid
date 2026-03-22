@@ -54,7 +54,7 @@ NixOS configuration flake for kid-friendly laptop with **local DNS filtering via
 - ✅ **Browser policies**: Firefox and Chromium locked anti-DoH
 - ✅ **Strict firewall**: Blocks public DoH IPs (Cloudflare, Google, Quad9)
 - ✅ **Proxy/VPN blocking**: NEW in v2.0 - blocks SOCKS, HTTP proxies, VPN ports
-- ✅ **Services blocklist**: Social media, gaming platforms, streaming (except Steam)
+- ✅ **Services blocklist**: Whitelist mode - all services blocked by default, allow only what you need
 - ✅ **Non-sudo user**: Child cannot modify system configuration
 - ✅ **Encrypted secrets**: SOPS-nix with age encryption (MANDATORY in v2.0)
 - ✅ **Automated tests**: Integration tests with `nix flake check`
@@ -203,37 +203,26 @@ kidFriendly.firewall = {
 
 ### Services Blocklist
 
+Whitelist mode: all 130+ services are blocked by default, you only specify what to allow.
+
 ```nix
 kidFriendly.servicesBlocklist = {
   enable = true;
 
-  # All enabled by default except Steam:
-  blockFacebook = true;
-  blockInstagram = true;
-  blockTwitter = true;
-  blockTikTok = true;
-  blockSnapchat = true;
-  blockReddit = true;
-  blockDiscord = true;
-  blockTwitch = true;
-  blockYouTube = true;
-  blockNetflix = true;
+  # Only these services are allowed, everything else is blocked
+  allowedServices = [ "steam" ];  # default
 
-  # Gaming platforms
-  blockEpicGames = true;
-  blockRiotGames = true;
-  blockBlizzard = true;
-  blockEA = true;
-  blockUbisoft = true;
-  blockGOG = true;
+  # To allow more services:
+  # allowedServices = [ "steam" "spotify" "minecraft" "youtube" ];
 
-  # Games
-  blockFortnite = true;
-  blockRoblox = true;
+  # Block unofficial Minecraft servers (default: true)
   blockMinecraftUnofficial = true;
 
-  # Steam is ALLOWED by default
-  blockSteam = false;  # Set to true to block Steam
+  # Add custom AdGuard Home rules
+  # customRules = [ "||example.com^" ];
+
+  # If AdGuard Home adds new services not yet in the built-in list:
+  # extraBlockedServices = [ "new_service_2026" ];
 };
 ```
 

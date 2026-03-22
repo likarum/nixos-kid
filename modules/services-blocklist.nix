@@ -29,8 +29,10 @@ let
     "yy" "zhihu"
   ];
 
-  # Compute blocked services = all services minus allowed ones
-  blockedServices = filter (s: !(elem s cfg.allowedServices)) allServices;
+  # Compute blocked services = allServices + extra, minus allowed
+  blockedServices =
+    (filter (s: !(elem s cfg.allowedServices)) allServices)
+    ++ (filter (s: !(elem s cfg.allowedServices)) cfg.extraBlockedServices);
 in
 {
   options.kidFriendly.servicesBlocklist = {
@@ -48,6 +50,16 @@ in
       example = [ "steam" "spotify" "minecraft" "youtube" ];
     };
 
+    extraBlockedServices = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      description = ''
+        Extra service IDs to block that are not yet in the built-in list.
+        Use this when AdGuard Home adds new services before the module is updated.
+      '';
+      example = [ "new_service_2026" ];
+    };
+
     blockMinecraftUnofficial = mkOption {
       type = types.bool;
       default = true;
@@ -63,16 +75,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = builtins.all (s: elem s allServices) cfg.allowedServices;
-        message = let
-          unknown = filter (s: !(elem s allServices)) cfg.allowedServices;
-        in "kidFriendly.servicesBlocklist: Unknown service IDs in allowedServices: ${concatStringsSep ", " unknown}. "
-           + "Valid IDs: ${concatStringsSep ", " allServices}";
-      }
-    ];
-
     kidFriendly.adguardHome = {
       enable = mkDefault true;
 

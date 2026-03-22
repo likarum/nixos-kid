@@ -61,8 +61,12 @@
 
               servicesBlocklist = {
                 enable = true;
-                # Customize which services to block
-                # blockSteam = true;  # Uncomment to block Steam
+                # Whitelist mode: all services blocked by default
+                # Only listed services are allowed:
+                allowedServices = [ "steam" ];
+                # allowedServices = [ "steam" "spotify" "youtube" ];
+                # If AdGuard adds new services not yet in the built-in list:
+                # extraBlockedServices = [ "new_service_2026" ];
               };
             };
 

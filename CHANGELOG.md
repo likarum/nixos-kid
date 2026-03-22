@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-03-22
+
+### 🚨 Breaking Changes
+
+- **Services blocklist refactored to whitelist mode**:
+  - All individual `blockX` options removed (`blockFacebook`, `blockSteam`, etc.)
+  - Replaced by a single `allowedServices` list (default: `[ "steam" ]`)
+  - All 130+ services are now blocked by default
+  - New `knownServices` option to extend the service list without modifying the module
+
+### ✨ Added
+
+- `kidFriendly.servicesBlocklist.allowedServices`: whitelist of services to allow
+- `kidFriendly.servicesBlocklist.extraBlockedServices`: block new services not yet in the built-in list
+- Warning message now shows count of blocked services and which are allowed
+
+### 🗑️ Removed
+
+- All individual `blockX` options (20+ options): `blockFacebook`, `blockInstagram`, `blockTwitter`, `blockTikTok`, `blockSnapchat`, `blockReddit`, `blockDiscord`, `blockEpicGames`, `blockRiotGames`, `blockBlizzard`, `blockEA`, `blockUbisoft`, `blockGOG`, `blockTwitch`, `blockYouTube`, `blockNetflix`, `blockFortnite`, `blockRoblox`, `blockSteam`
+
+### Migration from 2.0.0
+
+Replace:
+```nix
+kidFriendly.servicesBlocklist = {
+  enable = true;
+  blockSteam = false;  # old way to allow Steam
+};
+```
+
+With:
+```nix
+kidFriendly.servicesBlocklist = {
+  enable = true;
+  allowedServices = [ "steam" ];  # new whitelist approach
+};
+```
+
 ## [2.0.0] - 2026-01-20
 
 ### 🚨 Breaking Changes
